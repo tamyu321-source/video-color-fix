@@ -27,11 +27,11 @@ cd "$sources/ffmpeg-8.1.3"
   --extra-cflags="-I$prefix/include" --extra-ldflags="-L$prefix/lib -static" \
   --pkg-config=pkg-config --pkg-config-flags=--static \
   --enable-protocol=file,pipe \
-  --enable-demuxer=mov,matroska,mpegts,avi,mp3,wav,aac,flac \
-  --enable-muxer=mp4,mov,image2,rawvideo,null,hash,framehash,md5,framemd5,wav \
-  --enable-decoder=h264,hevc,av1,prores,mpeg2video,mpeg4,mjpeg,png,vp8,vp9,rawvideo,wrapped_avframe,aac,mp3,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_f64le,pcm_f64be,alac,flac,opus,vorbis \
-  --enable-encoder=libx264,prores_ks,aac,png,pcm_s24le,pcm_s16le,pcm_s16be,pcm_s24be,wrapped_avframe,rawvideo \
-  --enable-parser=h264,hevc,av1,mpegvideo,mpeg4video,mjpeg,vp8,vp9,aac,aac_latm,mpegaudio,opus,vorbis,flac \
+  --enable-demuxer=mov,matroska,mpegts,mxf,avi,mp3,wav,aac,flac \
+  --enable-muxer=mp4,mov,mpegts,image2,rawvideo,null,hash,framehash,md5,framemd5,wav \
+  --enable-decoder=h264,hevc,av1,prores,dnxhd,dvvideo,mpeg2video,mpeg4,mjpeg,png,vp8,vp9,rawvideo,wrapped_avframe,ac3,eac3,aac,mp3,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_f64le,pcm_f64be,alac,flac,opus,vorbis \
+  --enable-encoder=libx264,prores_ks,ac3,aac,png,pcm_s24le,pcm_s16le,pcm_s16be,pcm_s24be,wrapped_avframe,rawvideo \
+  --enable-parser=ac3,h264,hevc,av1,mpegvideo,mpeg4video,mjpeg,vp8,vp9,aac,aac_latm,mpegaudio,opus,vorbis,flac \
   --enable-bsf=aac_adtstoasc,h264_mp4toannexb,hevc_mp4toannexb,extract_extradata,null \
   --enable-filter=crop,unsharp,hqdn3d,vignette,scale,setsar,split,format,lut3d,testsrc2,color,sine,drawbox,null,anull,aresample,aformat,transpose,hflip,vflip,select,trim,setpts,fps,concat,buffer,buffersink,abuffer,abuffersink \
   --enable-indev=lavfi
