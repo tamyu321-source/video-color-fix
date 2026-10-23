@@ -52,7 +52,8 @@ function parseMetadata(data, file) {
   const rate = String(video.avg_frame_rate || video.r_frame_rate || '0/1').split('/').map(Number);
   const transfer = video.color_transfer || 'unknown';
   const primaries = video.color_primaries || 'unknown';
-  const wide = primaries === 'bt2020' || ['smpte2084', 'arib-std-b67'].includes(transfer);
+  const colorSpace = video.color_space || 'unknown';
+  const wide = primaries === 'bt2020' || colorSpace.startsWith('bt2020') || ['smpte2084', 'arib-std-b67'].includes(transfer);
   const rotation = Number(video.side_data_list?.find(s => s.rotation !== undefined)?.rotation || video.tags?.rotate || 0);
   const rotated = Math.abs(rotation % 180) === 90;
   return {
@@ -61,7 +62,7 @@ function parseMetadata(data, file) {
     height: rotated ? video.width : video.height,
     fps: rate[1] ? rate[0] / rate[1] : 0,
     videoIndex: video.index, codec: video.codec_name,
-    colorSpace: video.color_space || 'unknown', transfer, primaries,
+    colorSpace, transfer, primaries,
     audio: (data.streams || []).filter(s => s.codec_type === 'audio').map(s => ({ index: s.index, codec: s.codec_name })),
     supported: !wide,
     notice: wide ? '這是 HDR／廣色域影片。請先在 Catalyst 正確轉為 Rec.709，再使用去黃功能。'

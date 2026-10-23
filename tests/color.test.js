@@ -36,4 +36,7 @@ test('HDR sources are blocked and portrait rotation is represented in metadata',
   const data = { streams: [{ codec_type: 'video', index: 0, width: 480, height: 320, avg_frame_rate: '30/1', color_transfer: 'arib-std-b67', side_data_list: [{ rotation: 90 }] }], format: { duration: '2' } };
   const info = parseMetadata(data, '/test/clip.mp4');
   assert.equal(info.supported, false); assert.equal(info.width, 320); assert.equal(info.height, 480);
+  data.streams[0].color_transfer = undefined;
+  data.streams[0].color_space = 'bt2020nc';
+  assert.equal(parseMetadata(data, '/test/partial-tags.mp4').supported, false);
 });
