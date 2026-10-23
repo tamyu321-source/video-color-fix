@@ -55,7 +55,7 @@ def main():
         '--enable-pic', '--disable-debug', '--disable-doc', '--disable-ffplay',
         '--enable-ffmpeg', '--enable-ffprobe', '--enable-avfilter', '--enable-swscale', '--enable-swresample',
         '--enable-protocol=file,pipe',
-        '--enable-demuxer=mov,matroska,mpegts,mxf,avi,mp3,wav,aac,flac',
+        '--enable-demuxer=rawvideo,mov,matroska,mpegts,mxf,avi,mp3,wav,aac,flac',
         '--enable-muxer=mp4,mov,mpegts,image2,rawvideo,null,hash,framehash,md5,framemd5,wav',
         '--enable-decoder=h264,hevc,av1,prores,dnxhd,dvvideo,mpeg2video,mpeg4,mjpeg,png,vp8,vp9,rawvideo,wrapped_avframe,ac3,eac3,aac,mp3,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_f64le,pcm_f64be,alac,flac,opus,vorbis',
         '--enable-encoder=libx264,prores_ks,ac3,aac,png,pcm_s24le,pcm_s16le,pcm_s16be,pcm_s24be,wrapped_avframe,rawvideo',

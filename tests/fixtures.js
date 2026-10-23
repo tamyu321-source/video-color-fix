@@ -12,7 +12,7 @@ async function fixture(folder, { name = '測試影片 warm clip.mp4', duration =
   await run(binaries.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y',
     '-f', 'lavfi', '-i', `color=c=0xCDAA7F:s=${width}x${height}:r=30000/1001:d=${duration}`,
     ...(audio ? ['-f', 'lavfi', '-i', `sine=frequency=440:sample_rate=48000:duration=${duration}`] : []),
-    '-vf', 'drawbox=x=120:y=50:w=160:h=230:color=0xEBD4B8:t=fill,drawbox=x=295:y=80:w=55:h=150:color=0xDEA77C:t=fill',
+    '-vf', `drawbox=x=120:y=50:w=160:h=230:color=0xEBD4B8:t=fill,drawbox=x=295:y=80:w=55:h=150:color=0xDEA77C:t=fill,setparams=range=limited:color_primaries=${hdr ? 'bt2020' : 'bt709'}:color_trc=${hdr ? 'arib-std-b67' : 'bt709'}:colorspace=${hdr ? 'bt2020nc' : 'bt709'}`,
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast',
     '-color_range', 'tv', '-colorspace', hdr ? 'bt2020nc' : 'bt709', '-color_primaries', hdr ? 'bt2020' : 'bt709', '-color_trc', hdr ? 'arib-std-b67' : 'bt709',
     ...(audio ? ['-c:a', audioCodec, '-shortest'] : ['-an']), file]);

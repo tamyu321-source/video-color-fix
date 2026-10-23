@@ -71,7 +71,9 @@ async function encodedFixture(folder, { name, code, rgb, gamma, range = 'tv', ga
     for (let i = pixels * 3; i < pixels * 4; i += 2) full.writeUInt16LE(Math.round(512 + 896 * (rgb[0] - y) / (2 * (1 - kr))), i);
   }
   await fs.writeFile(raw, full);
-  await run(binaries.ffmpeg, ['-v', 'error', '-y', '-f', 'rawvideo', '-pixel_format', 'yuv422p10le', '-video_size', '96x64', '-framerate', '2', '-i', raw, '-c:v', 'prores_ks', '-profile:v', '3', '-color_range', range, '-colorspace', gamut === 'bt2020' ? 'bt2020nc' : 'bt709', '-color_primaries', gamut === 'bt2020' ? 'bt2020' : 'bt709', '-color_trc', gamma, out]);
+  await run(binaries.ffmpeg, ['-v', 'error', '-y', '-f', 'rawvideo', '-pixel_format', 'yuv422p10le', '-video_size', '96x64', '-framerate', '2', '-i', raw,
+    '-vf', `setparams=range=${range === 'tv' ? 'limited' : 'full'}:color_primaries=${gamut === 'bt2020' ? 'bt2020' : 'bt709'}:color_trc=${gamma}:colorspace=${gamut === 'bt2020' ? 'bt2020nc' : 'bt709'}`,
+    '-c:v', 'prores_ks', '-profile:v', '3', '-color_range', range, '-colorspace', gamut === 'bt2020' ? 'bt2020nc' : 'bt709', '-color_primaries', gamut === 'bt2020' ? 'bt2020' : 'bt709', '-color_trc', gamma, out]);
   return out;
 }
 module.exports = { encodedFixture, xml };

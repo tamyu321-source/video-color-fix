@@ -53,6 +53,9 @@ function exportOptions(source, input) {
     const rate = { '23.976': '24000/1001', '29.97': '30000/1001', '59.94': '60000/1001' }[s.frameRate] || s.frameRate;
     filters.push(`fps=${rate}`);
   }
+  // Set frame properties as well as encoder options: newer FFmpeg propagates
+  // frame color properties into the encoder, overriding unspecified CLI tags.
+  filters.push('setparams=range=limited:color_primaries=bt709:color_trc=bt709:colorspace=bt709');
   const video = prores ? ['-c:v', 'prores_ks', '-profile:v', s.proresProfile, '-threads', '4']
     : ['-c:v', 'libx264', '-preset', s.speed, ...(s.rateMode === 'quality' ? ['-crf', String(s.crf)] : ['-b:v', `${s.bitrate}M`, '-maxrate', `${s.bitrate * 1.5}M`, '-bufsize', `${s.bitrate * 2}M`]), '-threads', '4'];
   const audioCopied = s.audioMode === 'auto' && s.sampleRate === 'source' && source.audio.every(a => ['aac', 'mp3'].includes(a.codec));
