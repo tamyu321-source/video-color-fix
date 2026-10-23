@@ -4,6 +4,7 @@ const path = require('node:path');
 const { ColorEngine, CancelledError } = require('./engine');
 const { normalizeSettings } = require('./color');
 const { extension } = require('./pipeline');
+const { batchProfiles } = require('./input-color');
 
 async function uniqueOutput(file, folder = path.dirname(file), ext = '.mp4') {
   const name = path.parse(file).name;
@@ -45,7 +46,7 @@ class BatchJob {
       const key = process.platform === 'win32' ? file.toLowerCase() : file;
       if (seen.has(key)) return false;
       seen.add(key); return true;
-    }).map((file, id) => ({ id, path: file, name: path.basename(file), status: 'pending', percent: 0, output: null, error: null }));
+    }).map((file, id) => ({ id, path: file, name: path.basename(file), status: 'pending', percent: 0, output: null, error: null, inputOverride: 'inherit' }));
     this.state = 'idle'; this.stopping = false;
     this.notify(); return this.snapshot();
   }
@@ -56,12 +57,18 @@ class BatchJob {
     if (this.busy) throw new Error('請先完成或取消批量處理。');
     this.folder = resolved; this.notify(); return this.snapshot();
   }
+  setInput(id, profile) {
+    if (this.busy) throw new Error('請先完成或取消批量處理。');
+    const item = this.items.find(item => item.id === id);
+    if (!item || !Object.hasOwn(batchProfiles, profile)) throw new Error('請選擇清單中的影片及有效輸入格式。');
+    item.inputOverride = profile; this.notify(); return this.snapshot();
+  }
   start(settings) {
     if (this.busy) return Promise.reject(new Error('批量處理正在進行。'));
     if (!this.items.length || !this.folder) return Promise.reject(new Error('請先選擇影片和輸出資料夾。'));
     this.settings = normalizeSettings(settings);
     this.stopping = false; this.state = 'running';
-    this.items.forEach(item => Object.assign(item, { status: 'pending', percent: 0, output: null, error: null }));
+    this.items.forEach(item => Object.assign(item, { status: 'pending', percent: 0, output: null, error: null, inputFormat: null }));
     // Lock synchronously, including the gaps between probing and exporting files.
     this.promise = this.run();
     return this.promise;
@@ -78,10 +85,11 @@ class BatchJob {
           if (!metadata.supported) throw new Error(metadata.notice);
           const destination = await uniqueOutput(item.path, this.folder, extension(this.settings));
           if (this.stopping) throw new CancelledError();
-          const result = await this.engine.exportTo(destination, this.settings, data => {
+          const selected = { ...this.settings, ...batchProfiles[item.inputOverride || 'inherit'].settings };
+          const result = await this.engine.exportTo(destination, selected, data => {
             item.percent = data.percent; this.notify();
           });
-          item.output = result.path; item.percent = 100; item.status = 'completed';
+          item.output = result.path; item.percent = 100; item.status = 'completed'; item.inputFormat = result.profile.label;
         } catch (error) {
           if (error.code === 'CANCELLED') { item.status = 'cancelled'; this.stopping = true; }
           else { item.status = 'failed'; item.error = error.message; item.percent = 100; }

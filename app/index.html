@@ -20,10 +20,10 @@
       <div id="empty" class="empty-stage" tabindex="0" role="button" aria-label="選擇或拖入影片">
         <div class="empty-art" aria-hidden="true"><div class="film-frame warm-frame"><span></span></div><div class="film-frame white-frame"><span></span></div><div class="art-sun"></div></div>
         <h2>選擇影片</h2><p>拖入影片，或點擊選擇檔案</p><span class="empty-types">MP4 · MOV · MXF · MTS · WEBM</span>
-        <div class="empty-note">支援一般 SDR 影片，處理後另存新檔。</div>
+        <div class="empty-note">支援 SDR、HDR、Sony S-Log，輸出 SDR Rec.709。</div>
       </div>
       <div id="comparison" class="comparison" hidden>
-        <figure><figcaption><span class="label-dot warm"></span>原始畫面<span>BEFORE</span></figcaption><div class="image-stage"><img id="original" alt="原始影片畫面"></div></figure>
+        <figure><figcaption><span class="label-dot warm"></span><span id="before-label">原始畫面</span><span>BEFORE</span></figcaption><div class="image-stage"><img id="original" alt="校色前影片畫面"></div></figure>
         <figure><figcaption><span class="label-dot cool"></span>校色預覽<span>AFTER</span></figcaption><div class="image-stage"><img id="corrected" alt="校色後的影片畫面"><canvas id="clip-overlay" hidden></canvas></div></figure>
         <div id="preview-loading" class="preview-loading" hidden><span class="spinner"></span><span>正在更新畫面</span></div>
         <div id="wipe-line" class="wipe-line" hidden><span>↔</span></div>
@@ -41,6 +41,7 @@
     <aside class="controls" aria-label="校色設定">
       <div class="controls-heading"><div><h2>校色設定</h2></div><button id="reset" class="text-button" disabled>恢復預設</button></div>
       <fieldset id="grade-toolbar" class="grade-toolbar"><legend class="sr-only">設定管理</legend><button id="grade-undo" class="button button-light" disabled>復原</button><button id="grade-redo" class="button button-light" disabled>重做</button><button id="grade-save" class="button button-light">儲存設定</button><button id="grade-load" class="button button-light">載入設定</button></fieldset>
+      <button id="input-format" type="button" class="input-format">輸入格式：自動辨識 · 輸出 SDR Rec.709</button>
       <div class="grade-navigation"><div id="grade-tabs" class="grade-tabs" role="tablist" aria-label="調整類別"><button id="tab-basic" role="tab" data-tab="basic" aria-selected="true" aria-controls="settings">基本</button><button id="tab-color" role="tab" data-tab="color" aria-selected="false" aria-controls="settings">色彩</button><button id="tab-curves" role="tab" data-tab="curves" aria-selected="false" aria-controls="settings">曲線</button><button id="tab-detail" role="tab" data-tab="detail" aria-selected="false" aria-controls="settings">細節</button><button id="tab-output" role="tab" data-tab="output" aria-selected="false" aria-controls="settings">輸出</button></div><input id="grade-search" type="search" placeholder="搜尋調整，例如：飽和度" aria-label="搜尋調整"><p id="grade-summary">預設校色</p></div>
       <fieldset id="settings" disabled>
         <legend class="sr-only">校色工具</legend>
@@ -65,7 +66,7 @@
       <button id="reveal" class="button button-light reveal" hidden>在 Finder 顯示完成影片 ↗</button>
     </aside>
   </main>
-  <footer class="app-footer"><span>影片校色工具 <span class="version">0.2.0</span></span><span id="status" role="status" aria-live="polite">請選擇影片。</span></footer>
+  <footer class="app-footer"><span>影片校色工具 <span class="version">0.3.0</span></span><span id="status" role="status" aria-live="polite">請選擇影片。</span></footer>
   <dialog id="batch-dialog" aria-labelledby="batch-title">
     <div class="batch-header"><div><h2 id="batch-title">批量處理</h2><p>全部影片使用同一套校色與輸出設定，逐支另存新檔。</p></div><button id="batch-close" class="text-button" aria-label="關閉批量處理">關閉</button></div>
     <div class="batch-toolbar"><button id="batch-files" class="button button-light">選擇多支影片</button><button id="batch-folder" class="button button-light">選擇輸出資料夾</button></div>
@@ -82,11 +83,12 @@
   </dialog>
   <div id="tool-storage" hidden>
     <button id="white-pick" type="button" class="button button-light">點選灰白物件</button>
-    <div id="lut-tools"><p id="lut-name" class="grade-note">未套用 LUT</p><div class="tool-buttons"><button id="lut-import" type="button" class="button button-light">匯入 CUBE</button><button id="lut-remove" type="button" class="button button-light">移除 LUT</button></div><div class="tool-buttons"><select id="lut-size" aria-label="匯出 LUT 尺寸"><option>17</option><option selected>33</option><option>65</option></select><button id="lut-export" type="button" class="button button-light">匯出校色 LUT</button></div><p class="grade-note">支援獨立 1D／3D CUBE。匯出 LUT 包含色彩調整，不包含細節、裁切、片段或編碼設定。Log 轉換需使用與相機設定相符的輸入 LUT；HDR 仍需先轉成 Rec.709。</p></div>
+    <div id="lut-tools"><p id="lut-name" class="grade-note">未套用 LUT</p><div class="tool-buttons"><button id="lut-import" type="button" class="button button-light">匯入 CUBE</button><button id="lut-remove" type="button" class="button button-light">移除 LUT</button></div><div class="tool-buttons"><select id="lut-size" aria-label="匯出 LUT 尺寸"><option>17</option><option selected>33</option><option>65</option></select><button id="lut-export" type="button" class="button button-light">匯出校色 LUT</button></div><p class="grade-note">支援獨立 1D／3D CUBE。匯出 LUT 包含色彩調整，不包含細節、裁切、片段或編碼設定。匯出包含目前的 HDR／Log 輸入轉換，僅適用於相同輸入曲線、色域及訊號範圍。使用外部 Log 轉換 LUT 時，請先將內建輸入曲線與色域均設為 SDR / Rec.709，避免重複轉換。</p></div>
     <div id="curve-tools"><select id="curve-channel" aria-label="曲線通道"><option value="master">總體 RGB</option><option value="red">紅色</option><option value="green">綠色</option><option value="blue">藍色</option></select><svg id="curve-graph" viewBox="0 0 256 256" aria-label="五點曲線，可拖曳調整"><path d="M0 64H256M0 128H256M0 192H256M64 0V256M128 0V256M192 0V256" stroke="#dce3d5" fill="none"/><path d="M0 256L256 0" stroke="#b9c6b0" fill="none"/><polyline id="curve-line" fill="none" stroke="#456950" stroke-width="3"/><g id="curve-nodes" fill="#456950"><circle r="5"/><circle r="5"/><circle r="5"/><circle r="5"/><circle r="5"/></g></svg><div id="curve-points"></div><p class="grade-note">固定 0、25、50、75、100% 輸入點，使用分段線性曲線。輸出範圍 0–1。</p></div>
   </div>
   <div id="error" class="error-toast" role="alert" hidden><span id="error-text"></span><button id="dismiss-error" aria-label="關閉錯誤訊息">×</button></div>
   <script src="controls.js"></script>
+  <script src="input-color.js"></script>
   <script src="professional.js"></script>
   <script src="renderer.js"></script>
 </body>

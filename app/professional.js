@@ -4,10 +4,10 @@ class ProfessionalGrade {
     this.callbacks = callbacks; this.values = GradeControls.defaults(); this.luts = new Map(); this.history = [JSON.stringify(this.values)]; this.index = 0;
     this.controls = new Map(); this.groups = new Map(); this.activeTab = 'basic'; this.wheels = [];
     this.build(); this.render();
-    document.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => this.selectTab(button.dataset.tab)));
+    document.querySelectorAll('#grade-tabs [data-tab]').forEach(button => button.addEventListener('click', () => this.selectTab(button.dataset.tab)));
     document.getElementById('grade-tabs').addEventListener('keydown', e => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
-      const buttons = Array.from(document.querySelectorAll('[data-tab]')), at = buttons.findIndex(button => button.dataset.tab === this.activeTab);
+      const buttons = Array.from(document.querySelectorAll('#grade-tabs [data-tab]')), at = buttons.findIndex(button => button.dataset.tab === this.activeTab);
       const next = e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1 : (at + (e.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
       if (!buttons[next].disabled) { e.preventDefault(); buttons[next].click(); buttons[next].focus(); }
     });
@@ -33,7 +33,7 @@ class ProfessionalGrade {
   build() {
     const container = document.getElementById('advanced-controls');
     const createGroup = name => {
-      const detail = document.createElement('details'); detail.className = 'grade-group'; detail.dataset.tab = ['白平衡', '明暗'].includes(name) ? 'basic' : ['色彩', 'HSL 分色', '分色調', 'Lift Gamma Gain', '通道混合'].includes(name) ? 'color' : ['曲線', 'LUT'].includes(name) ? 'curves' : ['輸出', '音訊'].includes(name) ? 'output' : 'detail';
+      const detail = document.createElement('details'); detail.className = 'grade-group'; detail.dataset.tab = ['輸入格式', '白平衡', '明暗'].includes(name) ? 'basic' : ['色彩', 'HSL 分色', '分色調', 'Lift Gamma Gain', '通道混合'].includes(name) ? 'color' : ['曲線', 'LUT'].includes(name) ? 'curves' : ['輸出', '音訊'].includes(name) ? 'output' : 'detail';
       const heading = document.createElement('summary'); heading.textContent = name;
       const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'text-button'; reset.textContent = '重設'; reset.setAttribute('aria-label', `重設${name}`);
       const badge = document.createElement('span'); badge.className = 'group-count'; badge.hidden = true;
@@ -70,6 +70,7 @@ class ProfessionalGrade {
       const change = value => {
         if (!f.options && !Number.isFinite(value)) return;
         this.values[f.key] = f.options ? value : Math.min(f.max, Math.max(f.min, value));
+        if (f.key === 'hdrPeak') { this.values.peakMode = 'manual'; this.controls.get('peakMode').input.value = 'manual'; }
         input.value = this.values[f.key]; if (numeric && document.activeElement !== numeric) numeric.value = this.values[f.key];
         this.renderDependencies(); this.callbacks.preview();
       };
@@ -80,6 +81,8 @@ class ProfessionalGrade {
       this.controls.set(f.key, { input, numeric, row, field: f }); parent.append(row);
     }
     const white = this.groups.get('白平衡');
+    const inputMessage = document.createElement('p'); inputMessage.id = 'input-message'; inputMessage.className = 'grade-note'; this.groups.get('輸入格式').append(inputMessage);
+    const inputNote = document.createElement('p'); inputNote.className = 'grade-note'; inputNote.textContent = '先轉成 SDR Rec.709，再套用去黃與其他調整。Sony S-Log 必須確認曲線及色域；保留同名 M01.XML 可增加辨識資訊。無法確認時請手動選擇。HDR 峰值與參考白只用於 PQ／HLG。使用外部 Log 輸入 LUT 時，輸入曲線及色域都選 SDR / Rec.709，避免重複轉換。'; this.groups.get('輸入格式').append(inputNote);
     const note = document.createElement('p'); note.className = 'grade-note'; note.textContent = '色溫是 Rec.709 畫面的相對調整，非相機原始 K 值。'; white.append(note, document.getElementById('white-pick'));
     const lut = this.groups.get('LUT'); lut.append(document.getElementById('lut-tools'));
     const exportNote = document.createElement('p'); exportNote.className = 'grade-note'; exportNote.textContent = 'H.264 適合一般播放與分享；ProRes 適合後續剪輯，檔案較大。10-bit 輸出不會增加 8-bit 來源的原始細節。'; this.groups.get('輸出').append(exportNote);
@@ -173,7 +176,7 @@ class ProfessionalGrade {
     }
     document.getElementById('basic-controls').hidden = query ? !GradeControls.fields.filter(f => f.group === '基本').some(f => `${f.label} ${f.key}`.toLowerCase().includes(query)) : this.activeTab !== 'basic';
     document.getElementById('grade-empty-search').hidden = !query || !document.getElementById('basic-controls').hidden || Array.from(this.groups.values()).some(group => !group.hidden);
-    document.querySelectorAll('[data-tab]').forEach(button => { const selected = button.dataset.tab === this.activeTab && !query; button.setAttribute('aria-selected', selected); button.tabIndex = selected ? 0 : -1; });
+    document.querySelectorAll('#grade-tabs [data-tab]').forEach(button => { const selected = button.dataset.tab === this.activeTab && !query; button.setAttribute('aria-selected', selected); button.tabIndex = selected ? 0 : -1; });
     document.getElementById('settings').setAttribute('role', 'tabpanel'); document.getElementById('settings').setAttribute('aria-labelledby', `tab-${this.activeTab}`); this.lastQuery = query;
   }
   badges() {
@@ -228,7 +231,7 @@ class ProfessionalGrade {
   summary(s) {
     const defaults = GradeControls.defaults();
     const changed = GradeControls.fields.filter(f => f.group !== '基本' && s[f.key] !== defaults[f.key]).length + (s.lutId ? 1 : 0) + (JSON.stringify(s.curves) !== JSON.stringify(defaults.curves) ? 1 : 0);
-    return `進階 ${changed} 項 · ${s.codec === 'prores' ? 'ProRes / MOV' : 'H.264 / MP4'}`;
+    return `${s.inputGamma === 'auto' ? '逐支自動辨識輸入' : InputColor.names[s.inputGamma]}${s.inputGamut !== 'auto' ? ' / ' + InputColor.names[s.inputGamut] : ''} → SDR Rec.709 · 進階 ${changed} 項 · ${s.codec === 'prores' ? 'ProRes / MOV' : 'H.264 / MP4'}`;
   }
   scopes() {
     const image = document.getElementById('corrected'); if (!image.complete || !image.naturalWidth) return;

@@ -10,6 +10,15 @@
   add('基本', 'strength', '去黃強度', 0, 150, 1, 100);
   add('基本', 'tint', '綠／洋紅', -20, 20);
   add('基本', 'exposure', '曝光 EV', -5, 5, .1);
+  select('輸入格式', 'inputGamma', '輸入曲線', [['auto', '自動辨識'], ['rec709', 'SDR / Rec.709'], ['pq', 'HDR / PQ（HDR10）'], ['hlg', 'HDR / HLG'], ['slog2', 'Sony S-Log2'], ['slog3', 'Sony S-Log3']], 'auto');
+  select('輸入格式', 'inputGamut', '輸入色域', [['auto', '自動辨識'], ['rec709', 'Rec.709'], ['bt2020', 'Rec.2020'], ['sgamut', 'Sony S-Gamut'], ['sgamut3', 'Sony S-Gamut3'], ['sgamut3cine', 'Sony S-Gamut3.Cine']], 'auto');
+  select('輸入格式', 'inputRange', '訊號範圍', [['auto', '依影片標記／格式'], ['tv', 'Limited / Video'], ['pc', 'Full / Data']], 'auto');
+  select('輸入格式', 'inputMatrix', 'YUV 矩陣', [['auto', '依影片標記／曲線'], ['bt709', 'BT.709'], ['bt2020', 'BT.2020 非恆定亮度'], ['bt601', 'BT.601']], 'auto');
+  add('輸入格式', 'inputExposure', '轉換前曝光 EV', -6, 6, .1);
+  select('輸入格式', 'toneMapping', '高光轉換', [['shoulder', '柔和壓縮'], ['reinhard', 'Reinhard'], ['clip', '直接裁切']], 'shoulder');
+  select('輸入格式', 'peakMode', 'HDR 峰值來源', [['auto', '讀取靜態標記，無標記用 1000'], ['manual', '手動設定']], 'auto');
+  add('輸入格式', 'hdrPeak', 'HDR 峰值 nits', 400, 10000, 100, 1000);
+  add('輸入格式', 'hdrWhite', 'HDR 參考白 nits', 80, 400, 1, 203);
   add('白平衡', 'temperature', '色溫（相對）', -100, 100);
   for (const [key, name] of [['wbRed', '紅'], ['wbGreen', '綠'], ['wbBlue', '藍']]) add('白平衡', key, `${name}色增益`, .1, 4, .01, 1);
   add('白平衡', 'protectHighlights', '原去黃亮部保護', 0, 100, 1, 40);

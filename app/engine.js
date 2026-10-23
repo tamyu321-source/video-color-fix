@@ -8,6 +8,7 @@ const { spawn } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const { createCube, normalizeSettings } = require('./color');
 const { extension, previewGraph, exportOptions } = require('./pipeline');
+const InputColor = require('./input-color');
 
 class CancelledError extends Error {
   constructor() { super('已取消'); this.code = 'CANCELLED'; }
@@ -45,7 +46,7 @@ function run(binary, args, { cwd, signal, onOutput, timeout = 0 } = {}) {
   });
 }
 
-function parseMetadata(data, file) {
+function parseMetadata(data, file, sidecar = null) {
   const video = data.streams?.find(s => s.codec_type === 'video' && !s.disposition?.attached_pic);
   if (!video) throw new Error('這個檔案沒有可讀取的影片畫面。');
   const duration = Number(data.format?.duration || video.duration);
@@ -54,22 +55,33 @@ function parseMetadata(data, file) {
   const transfer = video.color_transfer || 'unknown';
   const primaries = video.color_primaries || 'unknown';
   const colorSpace = video.color_space || 'unknown';
-  const wide = primaries === 'bt2020' || colorSpace.startsWith('bt2020') || ['smpte2084', 'arib-std-b67'].includes(transfer);
   const rotation = Number(video.side_data_list?.find(s => s.rotation !== undefined)?.rotation || video.tags?.rotate || 0);
   const rotated = Math.abs(rotation % 180) === 90;
-  return {
+  const metadata = {
     path: file, name: path.basename(file), duration,
     width: rotated ? video.height : video.width,
     height: rotated ? video.width : video.height,
     fps: rate[1] ? rate[0] / rate[1] : 0,
     videoIndex: video.index, codec: video.codec_name,
     pixelFormat: video.pix_fmt || 'unknown', bitDepth: Number(video.bits_per_raw_sample) || Number(String(video.pix_fmt).match(/(?:p|gray)(9|10|12|14|16)(?:le|be)?$/)?.[1]) || (/f32/.test(video.pix_fmt) ? 32 : /(?:rgb|bgr)48|rgba64|bgra64/.test(video.pix_fmt) ? 16 : 8),
-    colorSpace, transfer, primaries,
+    colorSpace, transfer, primaries, colorRange: video.color_range || 'unknown', colorDetection: InputColor.detect(video, data.format, sidecar),
     audio: (data.streams || []).filter(s => s.codec_type === 'audio').map(s => ({ index: s.index, codec: s.codec_name, sampleRate: Number(s.sample_rate), channels: s.channels })),
-    supported: !wide,
-    notice: wide ? '這是 HDR／廣色域影片。請先在 Catalyst 正確轉為 Rec.709，再使用去黃功能。'
-      : '此工具校正一般 SDR 影片；若原片使用 S-Log，請先完成正確的 Rec.709 轉換。',
+    supported: true,
   };
+  metadata.notice = InputColor.resolve(metadata).notice;
+  return metadata;
+}
+
+async function readSonySidecar(file) {
+  const stem = path.join(path.dirname(file), path.basename(file, path.extname(file)));
+  for (const suffix of ['M01.XML', 'M01.xml', 'm01.xml', '.XML', '.xml']) {
+    try {
+      const candidate = stem + suffix, stat = await fs.stat(candidate);
+      if (!stat.isFile() || stat.size > 1024 * 1024) continue;
+      const parsed = InputColor.sonyXml(await fs.readFile(candidate, 'utf8')); if (parsed) return parsed;
+    } catch (error) { if (!['ENOENT', 'EACCES', 'EPERM'].includes(error.code)) throw error; }
+  }
+  return null;
 }
 
 class ColorEngine {
@@ -82,7 +94,13 @@ class ColorEngine {
   get busy() { return Boolean(this.exportController); }
   async probe(file) {
     const { stdout } = await run(this.ffprobe, ['-v', 'error', '-show_format', '-show_streams', '-of', 'json', file], { timeout: 30000 });
-    return parseMetadata(JSON.parse(stdout), file);
+    const data = JSON.parse(stdout), video = data.streams?.find(s => s.codec_type === 'video' && !s.disposition?.attached_pic);
+    if (['smpte2084', 'arib-std-b67'].includes(video?.color_transfer)) {
+      // Static HDR metadata may be attached to decoded frames rather than to the stream.
+      const frames = await run(this.ffprobe, ['-v', 'error', '-select_streams', 'v:0', '-read_intervals', '%+#8', '-show_frames', '-show_entries', 'frame=side_data_list', '-of', 'json', file], { timeout: 30000 });
+      video.side_data_list = [...(video.side_data_list || []), ...(JSON.parse(frames.stdout).frames || []).flatMap(frame => frame.side_data_list || [])];
+    }
+    return parseMetadata(data, file, await readSonySidecar(file));
   }
   async open(file) {
     if (this.busy) throw new Error('請先完成或取消目前的匯出。');
@@ -105,8 +123,11 @@ class ColorEngine {
     const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'whiteframe-preview-'));
     try {
       const settings = normalizeSettings(input);
+      const profile = InputColor.resolve(source, settings);
+      if (!profile.valid) throw new Error(profile.notice);
       const position = Math.max(0, Math.min(Number(time) || 0, Math.max(0, source.duration - 0.1)));
       await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings, Number(settings.lutResolution), this.getLut(settings.lutId)));
+      if (profile.converted) await fs.writeFile(path.join(folder, 'input.cube'), InputColor.cube(profile, settings));
       const graph = previewGraph(source, settings);
       await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(position), '-i', source.path,
         '-filter_complex_threads', '1', '-filter_complex', graph,
@@ -115,7 +136,7 @@ class ColorEngine {
       { cwd: folder, signal: controller.signal, timeout: 60000 });
       const [original, corrected] = await Promise.all(['original.png', 'corrected.png'].map(name => fs.readFile(path.join(folder, name))));
       if (controller.signal.aborted || this.source !== source) throw new CancelledError();
-      return { original: `data:image/png;base64,${original.toString('base64')}`, corrected: `data:image/png;base64,${corrected.toString('base64')}`, time: position, settings };
+      return { original: `data:image/png;base64,${original.toString('base64')}`, corrected: `data:image/png;base64,${corrected.toString('base64')}`, time: position, settings, profile };
     } finally {
       if (this.previewController === controller) this.previewController = null;
       await fs.rm(folder, { recursive: true, force: true });
@@ -150,9 +171,10 @@ class ColorEngine {
       temporary = path.join(path.dirname(destination), `.whiteframe-${randomUUID()}.partial${extension(settings)}`);
       const handle = await fs.open(temporary, 'wx'); await handle.close();
       await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings, Number(settings.lutResolution), this.getLut(settings.lutId)));
+      if (plan.profile.converted) await fs.writeFile(path.join(folder, 'input.cube'), InputColor.cube(plan.profile, settings));
       let pending = '';
       await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-nostats', '-y', ...plan.beforeInput, '-i', source.path, ...plan.afterInput,
-        '-map', `0:${source.videoIndex}`, '-map_metadata', '0',
+        '-map', `0:${source.videoIndex}`, '-map_metadata', '-1',
         '-vf', plan.filters, ...plan.video, '-fps_mode', 'passthrough', '-enc_time_base:v', '-1', ...plan.audio,
         '-metadata:s:v:0', 'rotate=0', '-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709',
         '-movflags', '+faststart', '-progress', 'pipe:1', temporary], {
@@ -180,7 +202,7 @@ class ColorEngine {
       }
       this.lastOutput = destination;
       onProgress({ percent: 100 });
-      return { path: destination, duration: metadata.duration, audioCopied: plan.audioCopied, settings };
+      return { path: destination, duration: metadata.duration, audioCopied: plan.audioCopied, settings, profile: plan.profile };
     } finally {
       if (temporary) await fs.rm(temporary, { force: true });
       if (folder) await fs.rm(folder, { recursive: true, force: true });

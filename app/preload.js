@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('whiteframe', {
   chooseBatchFiles: () => ipcRenderer.invoke('choose-batch-files'),
   batchDropped: files => ipcRenderer.invoke('batch-dropped', Array.from(files, file => webUtils.getPathForFile(file))),
   chooseBatchFolder: () => ipcRenderer.invoke('choose-batch-folder'),
+  setBatchInput: (id, profile) => ipcRenderer.invoke('batch-input', id, profile),
   startBatch: settings => ipcRenderer.invoke('start-batch', settings),
   cancelBatch: () => ipcRenderer.invoke('cancel-batch'),
   revealBatchFolder: () => ipcRenderer.invoke('reveal-batch-folder'),

@@ -6,7 +6,8 @@ const { randomUUID } = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { ColorEngine, samePath } = require('./engine');
 const { BatchJob, uniqueOutput } = require('./batch');
-const { normalizeSettings, createCube } = require('./color');
+const { normalizeSettings, createCube, compileTransform } = require('./color');
+const InputColor = require('./input-color');
 const { parseCube } = require('./lut');
 const { extension } = require('./pipeline');
 const luts = new Map();
@@ -119,12 +120,16 @@ app.whenReady().then(async () => {
   handle('export-lut', async (input, size) => {
     idle(); if (![17, 33, 65].includes(size)) throw new Error('請選擇 17、33 或 65 點 LUT。');
     const settings = normalizeSettings(input);
+    const profile = InputColor.resolve(engine.source, settings);
+    if (!profile.valid) throw new Error(profile.notice);
     const result = await dialog.showSaveDialog(window, { title: '匯出校色 LUT', defaultPath: `校色-${size}.cube`, filters: [{ name: 'CUBE LUT', extensions: ['cube'] }] });
     if (result.canceled) return null;
     idle(); const file = result.filePath.toLowerCase().endsWith('.cube') ? result.filePath : result.filePath + '.cube';
-    await saveText(file, createCube(settings, size, getLut(settings.lutId))); return { path: file };
+    const text = profile.converted ? InputColor.cube(profile, settings, size, compileTransform(settings, getLut(settings.lutId))) : createCube(settings, size, getLut(settings.lutId));
+    await saveText(file, text); return { path: file };
   });
   handle('batch-state', () => batch.snapshot());
+  handle('batch-input', (id, profile) => { idle(); return batch.setInput(id, profile); });
   handle('choose-batch-files', async () => {
     idle();
     const result = await dialog.showOpenDialog(window, { title: '選擇多支影片', properties: ['openFile', 'multiSelections'], filters: videoFilters });

@@ -1,6 +1,7 @@
 # 影片校色工具
 
-本機 SDR 影片去黃工具。支援 Windows x64、Apple Silicon Mac（macOS 14 以上）。
+本機影片校色工具。支援 SDR、HDR PQ／HLG、Sony S-Log2／3 輸入，輸出 SDR Rec.709。
+支援 Windows x64、Apple Silicon Mac（macOS 14 以上）。
 選擇影片、比較預覽、調整強度，再另存為 H.264 MP4。影片不會上傳。
 批量處理可選多支影片及輸出資料夾，使用同一組設定逐支匯出。
 失敗繼續、同名自動編號，取消清除未完成檔案並保留已完成輸出。
@@ -9,6 +10,10 @@
 Lift/Gamma/Gain/Offset、通道混合、CUBE LUT、空間細節與幾何處理、
 ProRes 422 10-bit、音訊／尺寸／幀率控制、可攜設定檔及參考圖表。
 完整使用方法及實際限制見「功能說明.txt」。
+
+0.3.0 加入 HDR／Sony S-Log 輸入轉換，依色彩標記及同名 Sony XML 辨識；
+無法確認時可手動選擇。批量可逐支指定格式。修正點擊參數時捲回頂端的問題。
+技術慣例、轉換限制及來源見 [COLOR_PIPELINE.md](COLOR_PIPELINE.md)。
 
 介面依可用螢幕開啟，最小 760×540；小預覽區自動使用滑桿對比。
 原生介面測試覆蓋 760×540、840×620、1366×768、1920×1080，
@@ -34,9 +39,9 @@ Apple Silicon macOS：`python scripts/download_runtime.py --target darwin-arm64`
 ## 驗證範圍
 
 校色基準、零強度、白衣及膚色方向、預覽、原檔保護、拒絕覆寫、取消清理、
-併行匯出限制、音訊保留／轉碼、無音訊、HDR 拒絕、原生 Electron 介面匯出。
+併行匯出限制、音訊保留／轉碼、無音訊、HDR／Sony Log 轉換、原生 Electron 介面匯出。
 批量測試涵蓋重名及重複來源、錯誤續跑、設定快照、取消清理及已完成檔案保留。
-預覽和匯出採用同一份校色函式及 LUT。未自動辨識 Sony S-Log。
+預覽和匯出採用相同的輸入轉換及校色函式。Sony 專有資訊未被 ffprobe 讀出且缺少 XML 時，需手動選擇。
 
 包裝為 ad-hoc 簽章測試版，沒有 Apple Developer ID 簽章或 Apple 公證。
 首次開啟方式見「使用說明.txt」。開啟輔助腳本只處理本 App 的隔離標記。

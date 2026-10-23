@@ -27,9 +27,24 @@ function refreshControls() {
   $('batch-open').disabled = state.exporting || state.loading || state.batchRunning;
   $('grade-toolbar').disabled = !enabled;
   $('grade-search').disabled = !enabled;
-  document.querySelectorAll('[data-tab]').forEach(button => button.disabled = !enabled);
-  $('export').disabled = !enabled || !state.source?.supported; $('seek').disabled = !enabled || !state.source?.supported;
-  $('white-pick').disabled = !state.source?.supported;
+  $('input-format').disabled = !enabled;
+  document.querySelectorAll('#grade-tabs [data-tab]').forEach(button => button.disabled = !enabled);
+  const valid = Boolean(state.source && InputColor.resolve(state.source, settings()).valid);
+  $('export').disabled = !enabled || !valid; $('seek').disabled = !enabled || !valid;
+  $('white-pick').disabled = !enabled || !valid;
+}
+function refreshProfile() {
+  if (!state.source) { $('input-format').textContent = '輸入格式：自動辨識 · 輸出 SDR Rec.709'; return; }
+  const p = InputColor.resolve(state.source, settings());
+  $('input-format').textContent = `${p.valid ? p.label : '請選擇輸入格式'} → SDR Rec.709`;
+  $('input-format').dataset.warning = String(!p.valid);
+  $('notice').textContent = p.notice; $('notice').hidden = false;
+  $('input-message').textContent = p.notice;
+  $('before-label').textContent = p.converted && p.valid ? '轉換後（未校色）' : '原始畫面';
+  $('original').alt = p.converted && p.valid ? '轉為 SDR Rec.709 後未校色的畫面' : '原始影片畫面';
+  $('preview-toolbar').querySelector('span').textContent = p.converted && p.valid ? '轉為 SDR 後比較校色結果' : '原始畫面 / 校色結果';
+  document.querySelector('.sdr-badge').textContent = p.valid ? (p.converted ? '轉為 SDR' : 'SDR') : '待選擇';
+  refreshControls();
 }
 function labels() {
   $('strength-value').textContent = `${$('strength').value}%`;
@@ -44,6 +59,8 @@ function labels() {
 }
 async function updatePreview() {
   if (!state.source?.supported || state.exporting || state.loading || state.batchRunning || $('batch-dialog').open) return;
+  const profile = InputColor.resolve(state.source, settings());
+  if (!profile.valid) { $('original').removeAttribute('src'); $('corrected').removeAttribute('src'); status(profile.notice); return; }
   const serial = ++state.previewSerial;
   $('preview-loading').hidden = false;
   try {
@@ -57,11 +74,12 @@ async function updatePreview() {
   finally { if (serial === state.previewSerial) $('preview-loading').hidden = true; }
 }
 function schedulePreview() {
+  ++state.previewSerial;
   if (state.source && professional) {
     const value = settings(), start = Math.min(value.trimStart, Number($('seek').max)), end = value.trimEnd ? Math.min(Number($('seek').max), value.trimEnd - .1) : Number($('seek').max);
     if (end >= start) $('seek').value = Math.min(end, Math.max(start, Number($('seek').value)));
   }
-  labels(); professional?.badges(); clearTimeout(state.timer); state.timer = setTimeout(updatePreview, 280);
+  labels(); professional?.badges(); refreshProfile(); clearTimeout(state.timer); $('preview-loading').hidden = true; state.timer = setTimeout(updatePreview, 280);
 }
 function restoreDefaults() {
   state.preset = 'natural'; $('strength').value = '100'; $('tint').value = '0'; $('exposure').value = '0';
@@ -82,14 +100,14 @@ async function loadVideo(loader) {
     $('filename').textContent = state.source.name;
     $('metadata').textContent = `${state.source.width} × ${state.source.height} · ${state.source.fps.toFixed(2)} fps · ${formatTime(state.source.duration)}`;
     $('source-info').hidden = false;
-    $('source-info').open = !state.source.supported;
+    $('source-info').open = !InputColor.resolve(state.source, settings()).valid;
     $('source-info-text').textContent = `${state.source.codec} · ${state.source.pixelFormat} · ${state.source.bitDepth}-bit\n色彩：${state.source.colorSpace} / ${state.source.primaries} / ${state.source.transfer}\n音訊：${state.source.audio.map(a => `${a.codec} · ${a.sampleRate} Hz · ${a.channels} 聲道`).join('；') || '無音訊'}`;
     $('file-info').hidden = false; $('empty').hidden = state.source.supported;
     $('preview-toolbar').hidden = !state.source.supported;
     $('comparison').hidden = !state.source.supported; $('timeline').hidden = !state.source.supported;
     $('original').removeAttribute('src'); $('corrected').removeAttribute('src');
-    $('notice').textContent = state.source.notice; $('notice').hidden = false;
-    document.querySelector('.sdr-badge').textContent = state.source.supported ? 'SDR' : 'HDR';
+    refreshProfile();
+    if (!InputColor.resolve(state.source, settings()).valid) { professional.selectTab('basic'); professional.groups.get('輸入格式').open = true; }
     $('seek').max = String(Math.max(0, state.source.duration - 0.1));
     $('seek').value = String(Math.min(state.source.duration / 2, 5));
     $('reveal').hidden = true;
@@ -177,7 +195,10 @@ function renderBatch(data = batchData) {
       const result = document.createElement('span'); result.className = 'batch-item-status';
       const detail = document.createElement('p'); detail.className = 'batch-item-detail';
       const progress = document.createElement('progress'); progress.max = 100; progress.setAttribute('aria-label', `${item.name} 進度`);
-      row.append(name, result, detail, progress); batchRows.set(item.id, { row, result, detail, progress }); return row;
+      const input = document.createElement('select'); input.className = 'batch-input'; input.setAttribute('aria-label', `${item.name} 輸入格式`);
+      for (const [key, profile] of Object.entries(InputColor.batchProfiles)) input.add(new Option(profile.label, key));
+      input.addEventListener('change', () => { const profile = input.value; batchAction(() => api.setBatchInput(item.id, profile)); });
+      row.append(name, result, detail, input, progress); batchRows.set(item.id, { row, result, detail, input, progress }); return row;
     });
     if (!rows.length) { const empty = document.createElement('p'); empty.className = 'batch-empty'; empty.textContent = '請選擇影片，也可以一次拖入多支影片。'; rows.push(empty); }
     $('batch-list').replaceChildren(...rows);
@@ -186,8 +207,9 @@ function renderBatch(data = batchData) {
     const view = batchRows.get(item.id);
     view.row.dataset.status = item.status;
     view.result.textContent = { pending: '等待處理', processing: `處理中 ${Math.round(item.percent)}%`, completed: '已完成', failed: '失敗', cancelled: '已取消' }[item.status];
-    view.detail.textContent = item.error || (item.output ? `另存為：${item.output}` : item.path);
+    view.detail.textContent = item.error || (item.output ? `${item.inputFormat || ''} → SDR Rec.709 · 另存為：${item.output}` : item.path);
     view.progress.value = item.percent;
+    view.input.value = item.inputOverride || 'inherit'; view.input.disabled = locked;
   }
 }
 async function openBatch() {
@@ -242,4 +264,5 @@ professional = new ProfessionalGrade({
   apply: value => { state.preset = value.preset; for (const id of ['strength', 'tint', 'exposure']) $(id).value = value[id]; labels(); },
   pick: active => { if (active) { state.beforePickView = state.previewView; state.previewView = 'original'; } else state.previewView = state.beforePickView || 'auto'; $('preview-view').value = state.previewView; previewLayout(); },
 });
-labels(); refreshControls(); previewLayout();
+$('input-format').addEventListener('click', () => { professional.selectTab('basic'); const group = professional.groups.get('輸入格式'); group.open = true; group.scrollIntoView({ block: 'nearest' }); });
+labels(); refreshControls(); refreshProfile(); previewLayout();

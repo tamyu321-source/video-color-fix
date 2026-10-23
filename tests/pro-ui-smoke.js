@@ -80,9 +80,46 @@ async function waitFile(file) {
       }), true, `${width}x${height} must keep export controls visible and the page contained.`);
       if (width <= 840) assert.equal(await page.locator('#comparison').getAttribute('data-view'), 'wipe');
       await page.screenshot({ path: path.join(results, `ui-professional-${name}.png`) });
+      await page.locator('#tab-color').click();
+      await page.locator('.grade-group[data-tab="color"]').evaluateAll(groups => groups.forEach(group => group.open = true));
+      const slider = page.locator('#grade-mixBB'); await slider.scrollIntoViewIfNeeded();
+      const scroll = await page.locator('#settings').evaluate(el => el.scrollTop); assert.ok(scroll > 100);
+      const sliderBox = await slider.boundingBox(); await slider.click({ position: { x: sliderBox.width * .75, y: sliderBox.height / 2 } });
+      await page.waitForFunction(() => document.getElementById('preview-loading').hidden);
+      assert.ok(Math.abs(await page.locator('#settings').evaluate(el => el.scrollTop) - scroll) <= 3, 'Clicking a lower slider must preserve scroll position.');
+      const numeric = page.getByRole('spinbutton', { name: '藍輸出 ← 藍數值', exact: true }); await numeric.click(); await numeric.fill('1.1'); await numeric.press('Tab');
+      assert.ok(Math.abs(await page.locator('#settings').evaluate(el => el.scrollTop) - scroll) <= 3, 'Editing a lower number must preserve scroll position.');
+      assert.equal(await page.locator('#tab-color').getAttribute('aria-selected'), 'true');
+    }
+    const hdr = await fixture(folder, { name: 'ui-hdr.mp4', hdr: true, duration: .5 });
+    const manual = await fixture(folder, { name: 'ui-log.mp4', duration: .5 });
+    await fs.writeFile(path.join(folder, 'ui-logM01.XML'), '<NonRealTimeMeta><Item name="CaptureGammaEquation" value="s-log3"/></NonRealTimeMeta>');
+    const selectFile = async file => { await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, file); await page.locator('#choose').click(); await page.waitForFunction(name => document.getElementById('filename').textContent === name && !document.getElementById('choose').disabled, path.basename(file)); };
+    await selectFile(hdr);
+    await page.waitForFunction(() => document.getElementById('corrected').naturalWidth > 0 && document.getElementById('preview-loading').hidden);
+    assert.match(await page.locator('#input-format').textContent(), /HLG.*SDR Rec.709/);
+    assert.equal(await page.locator('#before-label').textContent(), '轉換後（未校色）');
+    assert.equal(await page.locator('#export').isEnabled(), true);
+    await selectFile(manual);
+    assert.equal(await page.locator('#export').isDisabled(), true);
+    assert.match(await page.locator('#input-format').textContent(), /請選擇/);
+    assert.equal(await page.locator('#grade-inputGamut').isEnabled(), true);
+    await page.locator('#grade-inputGamut').selectOption('sgamut3cine');
+    await page.waitForFunction(() => document.getElementById('corrected').naturalWidth > 0 && document.getElementById('preview-loading').hidden);
+    assert.equal(await page.locator('#export').isEnabled(), true);
+    assert.match(await page.locator('#input-format').textContent(), /S-Log3.*S-Gamut3.Cine/);
+    await app.evaluate(({ dialog }, grade) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: grade }); }, path.join(folder, 'input-settings.json'));
+    await page.locator('#grade-save').click();
+    const inputSettings = path.join(folder, 'input-settings.json'); await waitFile(inputSettings);
+    assert.equal(JSON.parse(await fs.readFile(inputSettings, 'utf8')).settings.inputGamut, 'sgamut3cine');
+    for (const [width, height] of [[1366, 768], [760, 540]]) {
+      await app.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setContentSize(size[0], size[1]), [width, height]);
+      await page.locator('#input-format').click();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight && document.getElementById('export').getBoundingClientRect().bottom <= innerHeight), true);
+      await page.screenshot({ path: path.join(results, `ui-input-${width}.png`) });
     }
     assert.equal(errors.length, 0, errors.join('\n'));
-    await fs.writeFile(path.join(results, 'pro-ui-smoke.json'), JSON.stringify({ platform: process.platform, packaged, controls: true, undoRedo: true, presetWithLut: true, bakedLut: true, whitePicker: true, scopes: true, prores10bit: true, pcm24: true, errors }, null, 2));
+    await fs.writeFile(path.join(results, 'pro-ui-smoke.json'), JSON.stringify({ platform: process.platform, packaged, controls: true, undoRedo: true, presetWithLut: true, bakedLut: true, whitePicker: true, scopes: true, prores10bit: true, pcm24: true, scrollStable: true, autoHDR: true, manualSonyLog: true, errors }, null, 2));
     console.log('Professional UI passed: controls, undo/redo, portable presets, LUT roundtrip, scopes, white balance picker and ProRes 10-bit PCM export.');
   } catch (error) {
     if (page) { await page.screenshot({ path: path.join(results, 'ui-professional-failure.png') }).catch(() => {}); console.error(await page.locator('body').innerText()); }
