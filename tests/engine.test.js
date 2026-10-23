@@ -77,4 +77,19 @@ test('video correction integration', async t => {
     await assert.rejects(engine.exportTo(path.join(folder, 'hdr-out.mp4'), {}), /HDR/);
     assert.equal(engine.busy, false);
   });
+  await t.test('Sony big-endian PCM audio previews and exports as AAC', async () => {
+    for (const codec of ['pcm_s16be', 'pcm_s24be']) {
+      const pcm = await fixture(folder, { name: `${codec}.mov`, audioCodec: codec, duration: .5 });
+      const metadata = await engine.open(pcm);
+      assert.equal(metadata.audio[0].codec, codec);
+      assert.ok((await engine.preview(.1, {})).corrected.startsWith('data:image/png;base64,'));
+      const destination = path.join(folder, `${codec}-corrected.mp4`);
+      const result = await engine.exportTo(destination, {});
+      assert.equal(result.audioCopied, false);
+      const after = await engine.probe(destination);
+      assert.equal(after.audio[0].codec, 'aac');
+      assert.ok(Math.abs(after.duration - metadata.duration) < .1);
+      await run(binaries.ffmpeg, ['-v', 'error', '-i', destination, '-f', 'null', '-']);
+    }
+  });
 });

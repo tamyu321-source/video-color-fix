@@ -10,6 +10,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   mac-arm64:
+    permissions:
+      contents: write
     runs-on: macos-15
     timeout-minutes: 40
     steps:
@@ -55,6 +57,10 @@ jobs:
           WHITEFRAME_ELECTRON: ${{ github.workspace }}/.build/mac-package/VideoColorFix-Mac-arm64/VideoColorFix.app/Contents/MacOS/VideoColorFix
           WHITEFRAME_PACKAGED: '1'
         run: node tests/ui-smoke.js
+      - name: Upload tested package to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/publish_package.py Mac-arm64
       - name: Upload Mac app
         uses: actions/upload-artifact@v4
         with:
