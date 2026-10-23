@@ -40,6 +40,8 @@
   for (const [output, name] of [['R', '紅'], ['G', '綠'], ['B', '藍']]) for (const [input, from] of [['R', '紅'], ['G', '綠'], ['B', '藍']]) add('通道混合', `mix${output}${input}`, `${name}輸出 ← ${from}`, -2, 2, .01, output === input ? 1 : 0);
   add('LUT', 'lutIntensity', 'LUT 強度', 0, 100, 1, 100);
   select('LUT', 'lutPosition', 'LUT 位置', [['after', '校色後（風格）'], ['before', '校色前（輸入轉換）']], 'after');
+  select('LUT', 'lutResolution', '處理 LUT 精度', [['17', '17 點（較快）'], ['33', '33 點（預設）'], ['65', '65 點（較慢）']], '33');
+  select('LUT', 'interpolation', '處理 LUT 插值', [['nearest', '最近點'], ['trilinear', '三線性'], ['tetrahedral', '四面體（預設）']], 'tetrahedral');
   add('細節', 'sharpen', '銳化', 0, 2, .05);
   add('細節', 'clarity', '局部對比', -.5, .5, .025);
   add('細節', 'denoise', '空間降噪', 0, 10, .25);

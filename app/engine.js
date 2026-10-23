@@ -63,7 +63,7 @@ function parseMetadata(data, file) {
     height: rotated ? video.width : video.height,
     fps: rate[1] ? rate[0] / rate[1] : 0,
     videoIndex: video.index, codec: video.codec_name,
-    pixelFormat: video.pix_fmt || 'unknown', bitDepth: Number(video.bits_per_raw_sample) || (String(video.pix_fmt).includes('10') ? 10 : 8),
+    pixelFormat: video.pix_fmt || 'unknown', bitDepth: Number(video.bits_per_raw_sample) || Number(String(video.pix_fmt).match(/(?:p|gray)(9|10|12|14|16)(?:le|be)?$/)?.[1]) || (/f32/.test(video.pix_fmt) ? 32 : /(?:rgb|bgr)48|rgba64|bgra64/.test(video.pix_fmt) ? 16 : 8),
     colorSpace, transfer, primaries,
     audio: (data.streams || []).filter(s => s.codec_type === 'audio').map(s => ({ index: s.index, codec: s.codec_name, sampleRate: Number(s.sample_rate), channels: s.channels })),
     supported: !wide,
@@ -106,7 +106,7 @@ class ColorEngine {
     try {
       const settings = normalizeSettings(input);
       const position = Math.max(0, Math.min(Number(time) || 0, Math.max(0, source.duration - 0.1)));
-      await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings, 33, this.getLut(settings.lutId)));
+      await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings, Number(settings.lutResolution), this.getLut(settings.lutId)));
       const graph = previewGraph(source, settings);
       await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(position), '-i', source.path,
         '-filter_complex_threads', '1', '-filter_complex', graph,
@@ -149,7 +149,7 @@ class ColorEngine {
       if (controller.signal.aborted) throw new CancelledError();
       temporary = path.join(path.dirname(destination), `.whiteframe-${randomUUID()}.partial${extension(settings)}`);
       const handle = await fs.open(temporary, 'wx'); await handle.close();
-      await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings, 33, this.getLut(settings.lutId)));
+      await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings, Number(settings.lutResolution), this.getLut(settings.lutId)));
       let pending = '';
       await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-nostats', '-y', ...plan.beforeInput, '-i', source.path, ...plan.afterInput,
         '-map', `0:${source.videoIndex}`, '-map_metadata', '0',

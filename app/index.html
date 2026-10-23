@@ -16,6 +16,7 @@
     <section class="workspace" aria-label="影片預覽">
       <div class="section-heading"><div><h1>影片預覽</h1></div><div class="file-actions"><button id="batch-open" class="button button-light">批量處理</button><button id="choose" class="button button-light"><span aria-hidden="true">＋</span> 選擇影片</button></div></div>
       <div id="file-info" class="file-info" hidden><span class="file-dot"></span><strong id="filename"></strong><span id="metadata"></span><span class="sdr-badge">SDR</span></div>
+      <div id="preview-toolbar" class="preview-toolbar" hidden><label for="preview-view">比較方式</label><select id="preview-view"><option value="auto">自動排版</option><option value="split">並排對比</option><option value="wipe">滑桿對比</option><option value="original">只看原片</option><option value="corrected">只看校色</option></select><span>原始畫面 / 校色結果</span></div>
       <div id="empty" class="empty-stage" tabindex="0" role="button" aria-label="選擇或拖入影片">
         <div class="empty-art" aria-hidden="true"><div class="film-frame warm-frame"><span></span></div><div class="film-frame white-frame"><span></span></div><div class="art-sun"></div></div>
         <h2>選擇影片</h2><p>拖入影片，或點擊選擇檔案</p><span class="empty-types">MP4 · MOV · MXF · MTS · WEBM</span>
@@ -23,40 +24,50 @@
       </div>
       <div id="comparison" class="comparison" hidden>
         <figure><figcaption><span class="label-dot warm"></span>原始畫面<span>BEFORE</span></figcaption><div class="image-stage"><img id="original" alt="原始影片畫面"></div></figure>
-        <figure><figcaption><span class="label-dot cool"></span>校色預覽<span>AFTER</span></figcaption><div class="image-stage"><img id="corrected" alt="去黃校色後的影片畫面"></div></figure>
+        <figure><figcaption><span class="label-dot cool"></span>校色預覽<span>AFTER</span></figcaption><div class="image-stage"><img id="corrected" alt="校色後的影片畫面"><canvas id="clip-overlay" hidden></canvas></div></figure>
         <div id="preview-loading" class="preview-loading" hidden><span class="spinner"></span><span>正在更新畫面</span></div>
+        <div id="wipe-line" class="wipe-line" hidden><span>↔</span></div>
       </div>
+      <div id="wipe-control" class="wipe-control" hidden><span>原片</span><input id="compare-wipe" type="range" min="0" max="100" step="1" value="50" aria-label="原片與校色比較位置"><span>校色</span></div>
       <div id="timeline" class="timeline" hidden>
         <div class="timeline-label"><span>畫面預覽位置</span><output id="timecode">00:00 / 00:00</output></div>
         <input id="seek" type="range" min="0" max="1" step="0.1" value="0" aria-label="預覽時間">
         <p>拖曳時間軸，確認不同位置的白衣與膚色。</p>
       </div>
-      <div id="notice" class="notice" hidden></div>
-      <div class="workspace-footer"><span>預覽顯示目前選取的畫面，匯出會處理整段影片。</span></div>
+      <details id="scopes" class="scopes"><summary>色彩分析（目前預覽幀）</summary><div class="scope-toolbar"><select id="scope-mode" aria-label="分析圖"><option value="histogram">RGB 直方圖</option><option value="waveform">亮度波形</option><option value="vectorscope">向量圖</option></select><label><input id="scope-log" type="checkbox" checked>對數直方圖</label><label><input id="scope-clipping" type="checkbox">高光／黑位警示（僅預覽）</label></div><canvas id="scope-canvas" width="640" height="140" aria-label="色彩分析圖"></canvas><p id="scope-stats">選擇影片後顯示</p></details>
+      <details id="source-info" class="source-info" hidden><summary>來源資訊與色彩格式</summary><p id="source-info-text"></p><div id="notice" class="notice" hidden></div></details>
+      <div class="workspace-footer"><span>預覽顯示選取時間，依片段及輸出設定另存新檔。</span></div>
     </section>
     <aside class="controls" aria-label="校色設定">
       <div class="controls-heading"><div><h2>校色設定</h2></div><button id="reset" class="text-button" disabled>恢復預設</button></div>
+      <fieldset id="grade-toolbar" class="grade-toolbar"><legend class="sr-only">設定管理</legend><button id="grade-undo" class="button button-light" disabled>復原</button><button id="grade-redo" class="button button-light" disabled>重做</button><button id="grade-save" class="button button-light">儲存設定</button><button id="grade-load" class="button button-light">載入設定</button></fieldset>
+      <div class="grade-navigation"><div id="grade-tabs" class="grade-tabs" role="tablist" aria-label="調整類別"><button id="tab-basic" role="tab" data-tab="basic" aria-selected="true" aria-controls="settings">基本</button><button id="tab-color" role="tab" data-tab="color" aria-selected="false" aria-controls="settings">色彩</button><button id="tab-curves" role="tab" data-tab="curves" aria-selected="false" aria-controls="settings">曲線</button><button id="tab-detail" role="tab" data-tab="detail" aria-selected="false" aria-controls="settings">細節</button><button id="tab-output" role="tab" data-tab="output" aria-selected="false" aria-controls="settings">輸出</button></div><input id="grade-search" type="search" placeholder="搜尋調整，例如：飽和度" aria-label="搜尋調整"><p id="grade-summary">預設校色</p></div>
       <fieldset id="settings" disabled>
         <legend class="sr-only">校色工具</legend>
+        <div id="basic-controls">
         <div class="control-label">去黃模式</div>
         <div class="presets" role="group" aria-label="校色預設">
-          <button class="preset selected" data-preset="natural" aria-pressed="true"><span class="preset-swatch natural"></span><span>標準去黃（預設）<small>使用剛才試修的校色設定</small></span><i>✓</i></button>
+          <button class="preset selected" data-preset="natural" aria-pressed="true" title="標準去黃：原本試修的校色設定（預設）"><span class="preset-swatch natural"></span><span>標準去黃<small>使用剛才試修的校色設定（預設）</small></span><i>✓</i></button>
           <button class="preset" data-preset="gentle" aria-pressed="false"><span class="preset-swatch gentle"></span><span>輕度去黃<small>適合輕微偏黃的影片</small></span><i>✓</i></button>
           <button class="preset" data-preset="neutral" aria-pressed="false"><span class="preset-swatch neutral"></span><span>加強去黃<small>適合偏黃較明顯的影片</small></span><i>✓</i></button>
+          <button class="preset" data-preset="none" aria-pressed="false"><span>關閉去黃<small>使用其他調整或 LUT 時可選擇</small></span><i>✓</i></button>
         </div>
         <div class="control-label fine-label">手動調整</div>
         <div class="slider-control"><label for="strength">去黃強度<output id="strength-value">100%</output></label><input id="strength" type="range" min="0" max="150" step="1" value="100"><div class="slider-ends"><span>不去黃</span><span>加強去黃</span></div></div>
         <div class="slider-control"><label for="tint">色調微調<output id="tint-value">0</output></label><input id="tint" class="tint-range" type="range" min="-20" max="20" step="1" value="0"><div class="slider-ends"><span>綠</span><span>洋紅</span></div></div>
-        <div class="slider-control"><label for="exposure">亮度微調<output id="exposure-value">0.0</output></label><input id="exposure" type="range" min="-1" max="1" step="0.1" value="0"><div class="slider-ends"><span>暗一些</span><span>亮一些</span></div></div>
+        <div class="slider-control"><label for="exposure">曝光 EV<output id="exposure-value">0.0</output></label><input id="exposure" type="range" min="-5" max="5" step="0.1" value="0"><div class="slider-ends"><span>−5 EV</span><span>+5 EV</span></div></div>
+        </div>
+        <div id="advanced-controls"></div>
+        <p id="grade-empty-search" class="grade-note" hidden>找不到符合的調整，請試試其他名稱。</p>
       </fieldset>
-      <div class="export-area"><div class="export-format"><span>輸出影片</span><strong>MP4 <span>·</span> 原始尺寸與幀率</strong></div><button id="export" class="button button-primary" disabled>另存校色影片 <span aria-hidden="true">↗</span></button><p class="export-note">另存新檔，保留原始影片及音訊。<br>非 AAC／MP3 音訊會轉為 AAC。</p></div>
+      <div class="export-area"><p id="export-description" class="export-description">H.264 / MP4 · 8-bit · 原始尺寸 · 原始幀率</p><button id="export" class="button button-primary" disabled>另存校色影片 <span aria-hidden="true">↗</span></button><p class="export-note">依輸出設定另存新檔，保留原始影片。</p></div>
       <div id="progress-panel" class="progress-panel" hidden><div><strong id="progress-label">正在準備匯出</strong><output id="progress-value">0%</output></div><progress id="progress" max="100" value="0"></progress><button id="cancel" class="text-button">取消匯出</button></div>
       <button id="reveal" class="button button-light reveal" hidden>在 Finder 顯示完成影片 ↗</button>
     </aside>
   </main>
-  <footer class="app-footer"><span>影片校色工具 <span class="version">0.1.2</span></span><span id="status" role="status" aria-live="polite">請選擇影片。</span></footer>
+  <footer class="app-footer"><span>影片校色工具 <span class="version">0.2.0</span></span><span id="status" role="status" aria-live="polite">請選擇影片。</span></footer>
   <dialog id="batch-dialog" aria-labelledby="batch-title">
-    <div class="batch-header"><div><h2 id="batch-title">批量處理</h2><p>全部影片使用同一套校色設定，逐支另存成 MP4。</p></div><button id="batch-close" class="text-button" aria-label="關閉批量處理">關閉</button></div>
+    <div class="batch-header"><div><h2 id="batch-title">批量處理</h2><p>全部影片使用同一套校色與輸出設定，逐支另存新檔。</p></div><button id="batch-close" class="text-button" aria-label="關閉批量處理">關閉</button></div>
     <div class="batch-toolbar"><button id="batch-files" class="button button-light">選擇多支影片</button><button id="batch-folder" class="button button-light">選擇輸出資料夾</button></div>
     <p id="batch-folder-path" class="batch-path">尚未選擇輸出資料夾</p>
     <p id="batch-settings" class="batch-settings"></p>
@@ -69,7 +80,14 @@
       <div class="batch-buttons"><button id="batch-reveal" class="button button-light" hidden>開啟輸出資料夾</button><button id="batch-cancel" class="button button-light" hidden>取消批量處理</button><button id="batch-start" class="button button-primary" disabled>開始批量校色</button></div>
     </div>
   </dialog>
+  <div id="tool-storage" hidden>
+    <button id="white-pick" type="button" class="button button-light">點選灰白物件</button>
+    <div id="lut-tools"><p id="lut-name" class="grade-note">未套用 LUT</p><div class="tool-buttons"><button id="lut-import" type="button" class="button button-light">匯入 CUBE</button><button id="lut-remove" type="button" class="button button-light">移除 LUT</button></div><div class="tool-buttons"><select id="lut-size" aria-label="匯出 LUT 尺寸"><option>17</option><option selected>33</option><option>65</option></select><button id="lut-export" type="button" class="button button-light">匯出校色 LUT</button></div><p class="grade-note">支援獨立 1D／3D CUBE。匯出 LUT 包含色彩調整，不包含細節、裁切、片段或編碼設定。Log 轉換需使用與相機設定相符的輸入 LUT；HDR 仍需先轉成 Rec.709。</p></div>
+    <div id="curve-tools"><select id="curve-channel" aria-label="曲線通道"><option value="master">總體 RGB</option><option value="red">紅色</option><option value="green">綠色</option><option value="blue">藍色</option></select><svg id="curve-graph" viewBox="0 0 256 256" aria-label="五點曲線，可拖曳調整"><path d="M0 64H256M0 128H256M0 192H256M64 0V256M128 0V256M192 0V256" stroke="#dce3d5" fill="none"/><path d="M0 256L256 0" stroke="#b9c6b0" fill="none"/><polyline id="curve-line" fill="none" stroke="#456950" stroke-width="3"/><g id="curve-nodes" fill="#456950"><circle r="5"/><circle r="5"/><circle r="5"/><circle r="5"/><circle r="5"/></g></svg><div id="curve-points"></div><p class="grade-note">固定 0、25、50、75、100% 輸入點，使用分段線性曲線。輸出範圍 0–1。</p></div>
+  </div>
   <div id="error" class="error-toast" role="alert" hidden><span id="error-text"></span><button id="dismiss-error" aria-label="關閉錯誤訊息">×</button></div>
+  <script src="controls.js"></script>
+  <script src="professional.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

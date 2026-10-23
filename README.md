@@ -5,6 +5,15 @@
 批量處理可選多支影片及輸出資料夾，使用同一組設定逐支匯出。
 失敗繼續、同名自動編號，取消清除未完成檔案並保留已完成輸出。
 
+0.2.0 加入分類調整面板、搜尋、白平衡取樣、HSL 八色、RGB 曲線、色輪、
+Lift/Gamma/Gain/Offset、通道混合、CUBE LUT、空間細節與幾何處理、
+ProRes 422 10-bit、音訊／尺寸／幀率控制、可攜設定檔及參考圖表。
+完整使用方法及實際限制見「功能說明.txt」。
+
+介面依可用螢幕開啟，最小 760×540；小預覽區自動使用滑桿對比。
+原生介面測試覆蓋 760×540、840×620、1366×768、1920×1080，
+包含分類切換、搜尋、儲存／還原 LUT 設定、取樣、圖表及 ProRes 匯出。
+
 預設固定沿用本次試修設定：BT.709 線性 RGB 增益 `[0.82, 1.02, 1.30]`，
 去黃強度 100%、Tint 0、曝光 0，加上亮部保護。每次開檔及恢復預設
 都會回到這組設定。參見 `app/color.js` 及基準回歸測試。
@@ -33,3 +42,6 @@ Apple Silicon macOS：`python scripts/download_runtime.py --target darwin-arm64`
 首次開啟方式見「使用說明.txt」。開啟輔助腳本只處理本 App 的隔離標記。
 
 第三方來源、對應原始碼及授權見 `THIRD_PARTY.md`。
+
+濾鏡與編碼介面參考：[FFmpeg Filters](https://ffmpeg.org/ffmpeg-filters.html)、
+[FFmpeg Codecs](https://ffmpeg.org/ffmpeg-codecs.html)。

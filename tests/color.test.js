@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { transform, normalizeSettings, createCube } = require('../app/color');
 const { parseMetadata } = require('../app/engine');
 const baseline = require('./trial-baseline.json');
+const { defaults } = require('../app/controls');
 
 test('zero correction preserves the source across the tone range', () => {
   for (const value of [0, .02, .08, .2, .5, .8, 1]) {
@@ -12,7 +13,7 @@ test('zero correction preserves the source across the tone range', () => {
   }
 });
 test('defaults reproduce the delivered trial LUT, including highlight protection', () => {
-  assert.deepEqual(normalizeSettings(), { preset: 'natural', strength: 100, tint: 0, exposure: 0 });
+  assert.deepEqual(normalizeSettings(), defaults());
   for (const sample of baseline.samples) {
     const actual = transform(sample.input, {});
     actual.forEach((value, channel) => assert.ok(Math.abs(value - sample.output[channel]) < 0.00000002));
@@ -27,7 +28,7 @@ test('natural correction neutralizes yellow white fabric and preserves warm skin
   assert.ok(skin[0] > skin[1] && skin[1] > skin[2]);
 });
 test('controls constrain malformed input and generated LUT is finite', () => {
-  assert.deepEqual(normalizeSettings({ preset: '__proto__', strength: Infinity, tint: -999, exposure: 999 }), { preset: 'natural', strength: 100, tint: -20, exposure: 1 });
+  assert.deepEqual(normalizeSettings({ preset: '__proto__', strength: Infinity, tint: -999, exposure: 999 }), { ...defaults(), tint: -20, exposure: 5 });
   const cube = createCube({ strength: 150, tint: 20, exposure: 1 }, 5);
   assert.ok(!/NaN|Infinity/.test(cube));
   assert.equal(cube.split('\n').filter(x => /^\d/.test(x)).length, 125);

@@ -56,7 +56,9 @@ jobs:
         env:
           WHITEFRAME_ELECTRON: ${{ github.workspace }}/.build/mac-package/VideoColorFix-Mac-arm64/VideoColorFix.app/Contents/MacOS/VideoColorFix
           WHITEFRAME_PACKAGED: '1'
-        run: node tests/ui-smoke.js
+        run: |
+          node tests/ui-smoke.js
+          node tests/pro-ui-smoke.js
       - name: Upload tested package to release
         env:
           GH_TOKEN: ${{ github.token }}

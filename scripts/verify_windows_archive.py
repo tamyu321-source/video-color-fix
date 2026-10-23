@@ -19,7 +19,9 @@ with zipfile.ZipFile(archive) as package:
         offset = struct.unpack_from('<I', data, 0x3c)[0]
         assert data[offset:offset + 4] == b'PE\0\0', name
         assert struct.unpack_from('<H', data, offset + 4)[0] == 0x8664, name
-    assert package.read(base + 'resources/app/color.js') == (ROOT / 'app/color.js').read_bytes()
+    for file in (ROOT / 'app').iterdir():
+        if file.is_file():
+            assert package.read(base + 'resources/app/' + file.name).decode('utf-8').replace('\r\n', '\n') == file.read_text(encoding='utf-8').replace('\r\n', '\n'), file.name
     for name in ('Electron-LICENSE.txt', 'LICENSES.chromium.html', 'FFmpeg-GPLv2.txt', 'FFmpeg-LICENSE.md', 'x264-COPYING.txt', 'zlib-LICENSE.txt'):
         assert package.getinfo(base + 'resources/third-party/' + name).file_size > 0
     for lock in ('source-lock.json', 'windows-source-lock.json'):
@@ -27,4 +29,5 @@ with zipfile.ZipFile(archive) as package:
             data = package.read(base + 'resources/third-party/corresponding-source/.build/downloads/' + name)
             assert hashlib.sha256(data).hexdigest() == metadata['sha256']
     assert package.getinfo(base + '使用說明.txt').flag_bits & 0x800
+    assert package.getinfo(base + '功能說明.txt').file_size > 0
 print(json.dumps({'archive': archive.name, 'sha256': digest, 'x64': True, 'trial_defaults': True, 'licenses': True, 'source': True}, indent=2))

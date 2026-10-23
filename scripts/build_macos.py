@@ -70,6 +70,7 @@ def main():
     run(['codesign', '--force', '--deep', '--sign', '-', '--entitlements', ROOT / 'scripts/entitlements.plist', app])
     run(['codesign', '--verify', '--deep', '--strict', '--verbose=2', app])
     shutil.copy2(ROOT / '使用說明.txt', folder / '使用說明.txt')
+    shutil.copy2(ROOT / '功能說明.txt', folder / '功能說明.txt')
     shutil.copy2(ROOT / 'scripts/第一次開啟.command', folder / '第一次開啟.command')
     (folder / '第一次開啟.command').chmod(0o755)
     archive = DIST / f'{NAME}-{VERSION}-Mac-arm64.zip'

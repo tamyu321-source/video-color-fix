@@ -3,17 +3,33 @@ const $ = id => document.getElementById(id);
 const api = window.whiteframe;
 if (api.platform === 'win32') $('reveal').textContent = '在檔案總管顯示完成影片 ↗';
 const state = { source: null, preset: 'natural', exporting: false, loading: false, batchRunning: false, batchLoading: false, previewSerial: 0, timer: null };
+state.previewView = 'auto';
 let batchData = { items: [], total: 0, state: 'idle' }, batchListKey = '', batchRows = new Map();
+let professional;
 const formatTime = value => { const s = Math.max(0, Math.floor(value || 0)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
-function settings() { return { preset: state.preset, strength: Number($('strength').value), tint: Number($('tint').value), exposure: Number($('exposure').value) }; }
-function status(text) { $('status').textContent = text; }
+function settings() { return { ...(professional?.values || GradeControls.defaults()), preset: state.preset, strength: Number($('strength').value), tint: Number($('tint').value), exposure: Number($('exposure').value) }; }
+function status(text) { $('status').textContent = text; $('status').title = text; }
 function error(text) { $('error-text').textContent = text; $('error').hidden = false; }
+function previewLayout() {
+  const view = state.previewView === 'auto' ? (document.querySelector('.workspace').clientWidth < 650 ? 'wipe' : 'split') : state.previewView;
+  $('comparison').dataset.view = view;
+  $('wipe-control').hidden = view !== 'wipe' || !state.source?.supported;
+  $('wipe-line').hidden = view !== 'wipe';
+  $('comparison').style.setProperty('--wipe', `${$('compare-wipe').value}%`);
+}
+$('preview-view').addEventListener('change', () => { state.previewView = $('preview-view').value; previewLayout(); });
+$('compare-wipe').addEventListener('input', previewLayout);
+window.addEventListener('resize', previewLayout);
 function refreshControls() {
-  const enabled = state.source?.supported && !state.exporting && !state.loading && !state.batchRunning;
+  const enabled = state.source?.supported !== false && !state.exporting && !state.loading && !state.batchRunning;
   $('settings').disabled = !enabled; $('reset').disabled = !enabled;
   $('choose').disabled = state.exporting || state.loading || state.batchRunning;
   $('batch-open').disabled = state.exporting || state.loading || state.batchRunning;
-  $('export').disabled = !enabled; $('seek').disabled = !enabled;
+  $('grade-toolbar').disabled = !enabled;
+  $('grade-search').disabled = !enabled;
+  document.querySelectorAll('[data-tab]').forEach(button => button.disabled = !enabled);
+  $('export').disabled = !enabled || !state.source?.supported; $('seek').disabled = !enabled || !state.source?.supported;
+  $('white-pick').disabled = !state.source?.supported;
 }
 function labels() {
   $('strength-value').textContent = `${$('strength').value}%`;
@@ -35,15 +51,21 @@ async function updatePreview() {
     if (serial !== state.previewSerial || state.exporting) return;
     if (!result.ok) { if (!result.cancelled) error(result.error); return; }
     $('original').src = result.data.original; $('corrected').src = result.data.corrected;
+    $('corrected').onload = () => professional.scopes();
     status(`已更新 ${formatTime(result.data.time)} 的畫面預覽。`);
   } catch (e) { if (serial === state.previewSerial) error(e.message); }
   finally { if (serial === state.previewSerial) $('preview-loading').hidden = true; }
 }
 function schedulePreview() {
-  labels(); clearTimeout(state.timer); state.timer = setTimeout(updatePreview, 280);
+  if (state.source && professional) {
+    const value = settings(), start = Math.min(value.trimStart, Number($('seek').max)), end = value.trimEnd ? Math.min(Number($('seek').max), value.trimEnd - .1) : Number($('seek').max);
+    if (end >= start) $('seek').value = Math.min(end, Math.max(start, Number($('seek').value)));
+  }
+  labels(); professional?.badges(); clearTimeout(state.timer); state.timer = setTimeout(updatePreview, 280);
 }
 function restoreDefaults() {
   state.preset = 'natural'; $('strength').value = '100'; $('tint').value = '0'; $('exposure').value = '0';
+  professional?.set(GradeControls.defaults(), true);
 }
 async function loadVideo(loader) {
   if (state.exporting || state.loading || state.batchRunning) return;
@@ -59,7 +81,11 @@ async function loadVideo(loader) {
     state.source = result.data; loaded = true; restoreDefaults();
     $('filename').textContent = state.source.name;
     $('metadata').textContent = `${state.source.width} × ${state.source.height} · ${state.source.fps.toFixed(2)} fps · ${formatTime(state.source.duration)}`;
+    $('source-info').hidden = false;
+    $('source-info').open = !state.source.supported;
+    $('source-info-text').textContent = `${state.source.codec} · ${state.source.pixelFormat} · ${state.source.bitDepth}-bit\n色彩：${state.source.colorSpace} / ${state.source.primaries} / ${state.source.transfer}\n音訊：${state.source.audio.map(a => `${a.codec} · ${a.sampleRate} Hz · ${a.channels} 聲道`).join('；') || '無音訊'}`;
     $('file-info').hidden = false; $('empty').hidden = state.source.supported;
+    $('preview-toolbar').hidden = !state.source.supported;
     $('comparison').hidden = !state.source.supported; $('timeline').hidden = !state.source.supported;
     $('original').removeAttribute('src'); $('corrected').removeAttribute('src');
     $('notice').textContent = state.source.notice; $('notice').hidden = false;
@@ -67,6 +93,7 @@ async function loadVideo(loader) {
     $('seek').max = String(Math.max(0, state.source.duration - 0.1));
     $('seek').value = String(Math.min(state.source.duration / 2, 5));
     $('reveal').hidden = true;
+    previewLayout();
     if (!state.source.supported) status('這支影片需要先完成 HDR／廣色域轉換。');
     labels();
   } catch (e) { error(e.message); }
@@ -89,7 +116,7 @@ document.addEventListener('drop', event => {
     openBatch().then(() => batchAction(() => api.batchDropped(files))).catch(e => error(e.message));
   } else loadVideo(() => api.openDropped(files[0]));
 });
-document.querySelectorAll('[data-preset]').forEach(button => button.addEventListener('click', () => { state.preset = button.dataset.preset; schedulePreview(); }));
+document.querySelectorAll('[data-preset]').forEach(button => button.addEventListener('click', () => { state.preset = button.dataset.preset; professional.commit(); schedulePreview(); }));
 for (const id of ['strength', 'tint', 'exposure', 'seek']) $(id).addEventListener('input', schedulePreview);
 $('reset').addEventListener('click', () => { restoreDefaults(); schedulePreview(); });
 $('dismiss-error').addEventListener('click', () => { $('error').hidden = true; });
@@ -123,8 +150,8 @@ api.onProgress(data => {
 function batchSettingsLabel() {
   const value = state.batchRunning ? batchData.settings : settings();
   if (!value) return '';
-  const name = { natural: '標準去黃', gentle: '輕度去黃', neutral: '加強去黃' }[value.preset];
-  return `${name} · 強度 ${value.strength}% · 色調 ${value.tint} · 亮度 ${value.exposure}`;
+  const name = { natural: '標準去黃', gentle: '輕度去黃', neutral: '加強去黃', none: '關閉去黃' }[value.preset];
+  return `${name} · 強度 ${value.strength}% · 色調 ${value.tint} · 亮度 ${value.exposure} · ${professional.summary(value)}`;
 }
 function renderBatch(data = batchData) {
   batchData = data;
@@ -208,4 +235,11 @@ $('batch-cancel').addEventListener('click', async () => {
 });
 $('batch-reveal').addEventListener('click', async () => { const result = await api.revealBatchFolder(); if (!result.ok) error(result.error); });
 api.onBatchProgress(data => renderBatch(data));
-labels(); refreshControls();
+professional = new ProfessionalGrade({
+  read: settings, preview: schedulePreview, status, error,
+  time: () => Number($('seek').value),
+  enabled: () => Boolean(state.source?.supported && !state.exporting && !state.batchRunning && !state.loading),
+  apply: value => { state.preset = value.preset; for (const id of ['strength', 'tint', 'exposure']) $(id).value = value[id]; labels(); },
+  pick: active => { if (active) { state.beforePickView = state.previewView; state.previewView = 'original'; } else state.previewView = state.beforePickView || 'auto'; $('preview-view').value = state.previewView; previewLayout(); },
+});
+labels(); refreshControls(); previewLayout();

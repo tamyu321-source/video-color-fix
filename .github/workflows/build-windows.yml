@@ -66,7 +66,10 @@ jobs:
         env:
           WHITEFRAME_ELECTRON: ${{ github.workspace }}\.build\windows-package\VideoColorFix-Windows-x64\VideoColorFix.exe
           WHITEFRAME_PACKAGED: '1'
-        run: node tests/ui-smoke.js
+        run: |
+          node tests/ui-smoke.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/pro-ui-smoke.js
       - name: Upload tested package to release
         env:
           GH_TOKEN: ${{ github.token }}

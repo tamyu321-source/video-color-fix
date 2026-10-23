@@ -29,7 +29,7 @@ function parseCube(text) {
     values.push(...v);
     if (values.length > 65 ** 3 * 3) throw new Error('LUT 資料過多。');
   }
-  if (!dimensions || values.length !== (dimensions === 3 ? size ** 3 : size) * 3 || max.some((v, i) => v <= min[i])) throw new Error('LUT 資料量或輸入範圍不正確。');
+  if (!dimensions || values.length !== (dimensions === 3 ? size ** 3 : size) * 3 || max.some((v, i) => v <= min[i] || !Number.isFinite(v - min[i]))) throw new Error('LUT 資料量或輸入範圍不正確。');
   const data = new Float64Array(values);
   const sample = rgb => {
     const coordinates = rgb.map((v, i) => Math.max(0, Math.min(size - 1, (v - min[i]) / (max[i] - min[i]) * (size - 1))));

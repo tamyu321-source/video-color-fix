@@ -98,6 +98,11 @@ const { ColorEngine } = require('../app/engine');
       return dialog.top >= 0 && dialog.bottom <= innerHeight && button.bottom <= innerHeight && dialog.width <= innerWidth;
     }), true, 'Batch actions must remain visible in the smallest supported window.');
     await page.screenshot({ path: path.join(results, 'ui-batch-small.png') });
+    for (const [width, height] of [[760, 540], [1366, 768]]) {
+      await app.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setContentSize(size[0], size[1]), [width, height]);
+      assert.equal(await page.evaluate(() => { const dialog = document.getElementById('batch-dialog').getBoundingClientRect(), start = document.getElementById('batch-start').getBoundingClientRect(); return dialog.top >= 0 && dialog.bottom <= innerHeight && start.bottom <= innerHeight && start.right <= innerWidth; }), true, `Batch dialog must fit ${width}x${height}.`);
+      await page.screenshot({ path: path.join(results, `ui-batch-${width}.png`) });
+    }
     await page.locator('#batch-close').click();
     assert.equal(await page.locator('#batch-dialog').isVisible(), false);
     assert.equal(errors.length, 0, errors.join('\n'));

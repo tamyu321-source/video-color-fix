@@ -43,6 +43,7 @@ for name in ('source-lock.json', 'windows-source-lock.json', 'build_media_window
     shutil.copy2(ROOT / 'scripts' / name, source_scripts / name)
 shutil.copy2(ROOT / 'THIRD_PARTY-Windows.md', third_party / 'README.md')
 shutil.copy2(ROOT / 'Windows使用說明.txt', folder / '使用說明.txt')
+shutil.copy2(ROOT / '功能說明.txt', folder / '功能說明.txt')
 dist = ROOT / 'dist'
 dist.mkdir(exist_ok=True)
 archive = dist / f'VideoColorFix-{VERSION}-Windows-x64.zip'

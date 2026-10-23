@@ -22,11 +22,14 @@ function details(s) {
   return filters;
 }
 function gradeFilter(s, output = 'yuv420p') {
-  return ['format=gbrpf32le', 'lut3d=file=balance.cube:interp=tetrahedral', ...details(s), `format=${output}`].join(',');
+  return ['format=gbrpf32le', `lut3d=file=balance.cube:interp=${s.interpolation}`, ...details(s), `format=${output}`].join(',');
 }
 function previewGraph(source, s) {
-  const before = [...geometry(s), "scale=w='min(960,iw)':h='min(720,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2", 'setsar=1', 'split[original][balance]'];
-  return `[0:${source.videoIndex}]${before.join(',')};[balance]${gradeFilter(s, 'rgb24')}[corrected]`;
+  const thumbnail = "scale=w='min(960,iw)':h='min(720,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2";
+  const before = [...geometry(s), 'split[originalSource][balance]'];
+  const after = [gradeFilter(s, 'gbrpf32le')];
+  if (s.resolution !== 'original') after.push(`scale=w='min(iw,${s.resolution})':h='min(ih,${s.resolution})':force_original_aspect_ratio=decrease:force_divisible_by=2`);
+  return `[0:${source.videoIndex}]${before.join(',')};[originalSource]${thumbnail},setsar=1,format=rgb24[original];[balance]${after.join(',')},${thumbnail},setsar=1,format=rgb24[corrected]`;
 }
 function exportOptions(source, input) {
   const s = normalizeSettings(input), prores = s.codec === 'prores';

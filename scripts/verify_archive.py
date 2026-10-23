@@ -22,7 +22,9 @@ with zipfile.ZipFile(archive) as bundle:
         magic, cpu = struct.unpack('<II', bundle.read(entry)[:8])
         assert magic == 0xfeedfacf and cpu == 0x100000c, name
         assert (entry.external_attr >> 16) & 0o111, name
-    assert bundle.read(prefix + 'Resources/app/color.js') == (ROOT / 'app/color.js').read_bytes()
+    for file in (ROOT / 'app').iterdir():
+        if file.is_file():
+            assert bundle.read(prefix + 'Resources/app/' + file.name).decode('utf-8').replace('\r\n', '\n') == file.read_text(encoding='utf-8').replace('\r\n', '\n'), file.name
     for name in ['Electron-LICENSE.txt', 'LICENSES.chromium.html', 'FFmpeg-GPLv2.txt', 'FFmpeg-LICENSE.md', 'x264-COPYING.txt']:
         assert bundle.getinfo(prefix + 'Resources/third-party/' + name).file_size > 0
     source = prefix + 'Resources/third-party/corresponding-source/'
@@ -32,4 +34,5 @@ with zipfile.ZipFile(archive) as bundle:
     assert (script.external_attr >> 16) & 0o111
     assert script.flag_bits & 0x800, 'Chinese filenames require UTF-8 ZIP flag'
     assert bundle.getinfo('VideoColorFix-Mac-arm64/使用說明.txt').file_size > 0
+    assert bundle.getinfo('VideoColorFix-Mac-arm64/功能說明.txt').file_size > 0
 print(json.dumps({'archive': archive.name, 'bytes': archive.stat().st_size, 'sha256': actual, 'arm64': True, 'licenses': True, 'source': True, 'trial_defaults': True}, indent=2))
