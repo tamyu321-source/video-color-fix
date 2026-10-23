@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>影片校色工具</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><strong>影片校色工具</strong></div>
+    <div class="local-badge"><span></span>本機處理，不上傳影片</div>
+  </header>
+  <main>
+    <section class="workspace" aria-label="影片預覽">
+      <div class="section-heading"><div><h1>影片預覽</h1></div><button id="choose" class="button button-light"><span aria-hidden="true">＋</span> 選擇影片</button></div>
+      <div id="file-info" class="file-info" hidden><span class="file-dot"></span><strong id="filename"></strong><span id="metadata"></span><span class="sdr-badge">SDR</span></div>
+      <div id="empty" class="empty-stage" tabindex="0" role="button" aria-label="選擇或拖入影片">
+        <div class="empty-art" aria-hidden="true"><div class="film-frame warm-frame"><span></span></div><div class="film-frame white-frame"><span></span></div><div class="art-sun"></div></div>
+        <h2>選擇影片</h2><p>拖入影片，或點擊選擇檔案</p><span class="empty-types">MP4 · MOV · MXF · MTS · WEBM</span>
+        <div class="empty-note">支援一般 SDR 影片，處理後另存新檔。</div>
+      </div>
+      <div id="comparison" class="comparison" hidden>
+        <figure><figcaption><span class="label-dot warm"></span>原始畫面<span>BEFORE</span></figcaption><div class="image-stage"><img id="original" alt="原始影片畫面"></div></figure>
+        <figure><figcaption><span class="label-dot cool"></span>校色預覽<span>AFTER</span></figcaption><div class="image-stage"><img id="corrected" alt="去黃校色後的影片畫面"></div></figure>
+        <div id="preview-loading" class="preview-loading" hidden><span class="spinner"></span><span>正在更新畫面</span></div>
+      </div>
+      <div id="timeline" class="timeline" hidden>
+        <div class="timeline-label"><span>畫面預覽位置</span><output id="timecode">00:00 / 00:00</output></div>
+        <input id="seek" type="range" min="0" max="1" step="0.1" value="0" aria-label="預覽時間">
+        <p>拖曳時間軸，確認不同位置的白衣與膚色。</p>
+      </div>
+      <div id="notice" class="notice" hidden></div>
+      <div class="workspace-footer"><span>預覽顯示目前選取的畫面，匯出會處理整段影片。</span></div>
+    </section>
+    <aside class="controls" aria-label="校色設定">
+      <div class="controls-heading"><div><h2>校色設定</h2></div><button id="reset" class="text-button" disabled>恢復預設</button></div>
+      <fieldset id="settings" disabled>
+        <legend class="sr-only">校色工具</legend>
+        <div class="control-label">去黃模式</div>
+        <div class="presets" role="group" aria-label="校色預設">
+          <button class="preset selected" data-preset="natural" aria-pressed="true"><span class="preset-swatch natural"></span><span>標準去黃（預設）<small>使用剛才試修的校色設定</small></span><i>✓</i></button>
+          <button class="preset" data-preset="gentle" aria-pressed="false"><span class="preset-swatch gentle"></span><span>輕度去黃<small>適合輕微偏黃的影片</small></span><i>✓</i></button>
+          <button class="preset" data-preset="neutral" aria-pressed="false"><span class="preset-swatch neutral"></span><span>加強去黃<small>適合偏黃較明顯的影片</small></span><i>✓</i></button>
+        </div>
+        <div class="control-label fine-label">手動調整</div>
+        <div class="slider-control"><label for="strength">去黃強度<output id="strength-value">100%</output></label><input id="strength" type="range" min="0" max="150" step="1" value="100"><div class="slider-ends"><span>不去黃</span><span>加強去黃</span></div></div>
+        <div class="slider-control"><label for="tint">色調微調<output id="tint-value">0</output></label><input id="tint" class="tint-range" type="range" min="-20" max="20" step="1" value="0"><div class="slider-ends"><span>綠</span><span>洋紅</span></div></div>
+        <div class="slider-control"><label for="exposure">亮度微調<output id="exposure-value">0.0</output></label><input id="exposure" type="range" min="-1" max="1" step="0.1" value="0"><div class="slider-ends"><span>暗一些</span><span>亮一些</span></div></div>
+      </fieldset>
+      <div class="export-area"><div class="export-format"><span>輸出影片</span><strong>MP4 <span>·</span> 原始尺寸與幀率</strong></div><button id="export" class="button button-primary" disabled>另存校色影片 <span aria-hidden="true">↗</span></button><p class="export-note">另存新檔，保留原始影片及音訊。<br>非 AAC／MP3 音訊會轉為 AAC。</p></div>
+      <div id="progress-panel" class="progress-panel" hidden><div><strong id="progress-label">正在準備匯出</strong><output id="progress-value">0%</output></div><progress id="progress" max="100" value="0"></progress><button id="cancel" class="text-button">取消匯出</button></div>
+      <button id="reveal" class="button button-light reveal" hidden>在 Finder 顯示完成影片 ↗</button>
+    </aside>
+  </main>
+  <footer class="app-footer"><span>影片校色工具 <span class="version">0.1.0</span></span><span id="status" role="status" aria-live="polite">請選擇影片。</span></footer>
+  <div id="error" class="error-toast" role="alert" hidden><span id="error-text"></span><button id="dismiss-error" aria-label="關閉錯誤訊息">×</button></div>
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+name: Build and verify Mac app
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: mac-app-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mac-arm64:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check Apple Silicon runner
+        run: test "$(uname -m)" = arm64
+      - name: Install test dependencies
+        run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .build/downloads
+            .build/media-prefix
+            vendor/darwin-arm64
+          key: mac-media-v1-${{ hashFiles('scripts/source-lock.json', 'scripts/build_media_macos.py') }}
+      - name: Download and verify Electron
+        run: python scripts/download_runtime.py --target darwin-arm64
+      - name: Build FFmpeg and ffprobe from pinned source
+        run: python scripts/build_media_macos.py
+      - name: Test color correction and export safety
+        run: npm test
+      - name: Package and verify app signatures
+        run: python scripts/build_macos.py
+      - name: Test packaged app on macOS
+        env:
+          WHITEFRAME_ELECTRON: ${{ github.workspace }}/.build/mac-package/VideoColorFix-Mac-arm64/VideoColorFix.app/Contents/MacOS/Electron
+          WHITEFRAME_PACKAGED: '1'
+        run: node tests/ui-smoke.js
+      - name: Upload Mac app
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoColorFix-Mac-arm64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mac-verification
+          path: |
+            test-results/*.json
+            test-results/*.png
+          if-no-files-found: ignore
+          retention-days: 14
