@@ -1,0 +1,83 @@
+name: Build and verify Windows app
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: windows-app-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - uses: actions/cache/restore@v4
+        id: media-cache
+        with:
+          path: |
+            .build/downloads
+            vendor/win32-x64
+          key: windows-media-v1-${{ hashFiles('scripts/*source-lock.json', 'scripts/build_media_windows.sh') }}
+      - name: Download and verify Electron
+        run: python scripts/download_runtime.py --target win32-x64 --electron-only
+      - name: Fetch pinned media source
+        if: steps.media-cache.outputs.cache-hit != 'true'
+        run: python scripts/prepare_windows_sources.py
+      - uses: msys2/setup-msys2@v2
+        if: steps.media-cache.outputs.cache-hit != 'true'
+        with:
+          msystem: UCRT64
+          install: >-
+            make diffutils nasm
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-pkgconf
+      - name: Compile self-contained FFmpeg and ffprobe
+        if: steps.media-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: bash scripts/build_media_windows.sh
+      - name: Save media runtime
+        if: steps.media-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .build/downloads
+            vendor/win32-x64
+          key: windows-media-v1-${{ hashFiles('scripts/*source-lock.json', 'scripts/build_media_windows.sh') }}
+      - name: Test correction and export safety
+        run: npm test
+      - name: Build Windows ZIP
+        run: python scripts/build_windows.py
+      - name: Verify ZIP contents
+        run: python scripts/verify_windows_archive.py
+      - name: Test packaged Windows app
+        env:
+          WHITEFRAME_ELECTRON: ${{ github.workspace }}\.build\windows-package\VideoColorFix-Windows-x64\VideoColorFix.exe
+          WHITEFRAME_PACKAGED: '1'
+        run: node tests/ui-smoke.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VideoColorFix-Windows-x64
+          path: |
+            dist/*Windows*
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Windows-verification
+          path: |
+            test-results/*.json
+            test-results/*.png
+          if-no-files-found: ignore
+          retention-days: 14

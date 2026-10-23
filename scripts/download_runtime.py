@@ -45,7 +45,9 @@ def obtain(name, url, expected=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--target', choices=['darwin-arm64', 'win32-x64', 'all'], default='darwin-arm64' if sys.platform == 'darwin' else 'win32-x64')
-    target = parser.parse_args().target
+    parser.add_argument('--electron-only', action='store_true')
+    arguments = parser.parse_args()
+    target = arguments.target
     CACHE.mkdir(parents=True, exist_ok=True)
     sums = fetch(f"{BASE}/SHASUMS256.txt").decode()
     (CACHE / "electron-SHASUMS256.txt").write_text(sums, encoding="utf-8")
@@ -56,7 +58,7 @@ def main():
         tasks.append((name, f"{BASE}/{name}", expected[name]))
     # macOS media binaries are built from pinned source (build_media_macos.py).
     # These Windows binaries are only used for local development/tests, not shipped.
-    if target in ('win32-x64', 'all'):
+    if target in ('win32-x64', 'all') and not arguments.electron_only:
         release = json.loads(fetch("https://api.github.com/repos/eugeneware/ffmpeg-static/releases/tags/b6.1.1"))
         for name in ("ffmpeg-win32-x64", "ffprobe-win32-x64"):
             asset = next(a for a in release["assets"] if a["name"] == name)

@@ -1,9 +1,9 @@
 {
   "name": "whiteframe",
   "productName": "影片校色工具",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
-  "description": "Local SDR video white-balance correction for Apple Silicon Macs",
+  "description": "Local SDR video color correction for Windows and Apple Silicon Mac",
   "main": "app/main.js",
   "scripts": {
     "test": "node --test tests/*.test.js",

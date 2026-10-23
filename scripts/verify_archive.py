@@ -7,7 +7,8 @@ import struct
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-archive = ROOT / 'dist' / 'VideoColorFix-0.1.0-Mac-arm64.zip'
+version = json.loads((ROOT / 'package.json').read_text())['version']
+archive = ROOT / 'dist' / f'VideoColorFix-{version}-Mac-arm64.zip'
 expected = (ROOT / 'dist/SHA256SUMS.txt').read_text().split()[0]
 actual = hashlib.sha256(archive.read_bytes()).hexdigest()
 assert actual == expected, 'Archive checksum mismatch'

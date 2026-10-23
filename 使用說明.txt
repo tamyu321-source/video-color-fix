@@ -1,15 +1,18 @@
-影片校色工具 0.1.0
+影片校色工具 0.1.1
 
 適用：Apple Silicon Mac（M1／M2／M3／M4 等），macOS 14 或更新版本。
 不用安裝 Python、Node.js、Homebrew 或另外下載 FFmpeg。
 
 開啟
-1. 在 Mac 上解壓縮 VideoColorFix-0.1.0-Mac-arm64.zip。
+1. 在 Mac 上解壓縮 VideoColorFix-0.1.1-Mac-arm64.zip。
 2. 開啟資料夾內的 VideoColorFix.app。
 3. 這是尚未經 Apple 公證的測試版。如果系統擋住，確認是你取得的
    這份程式後，可雙擊同一資料夾內的「第一次開啟.command」。
    這個腳本只處理同資料夾這支 App 的下載隔離標記，並驗證程式簽章。
    不會關閉 Mac 的系統安全功能。
+   如果「第一次開啟.command」本身也被擋住：先按「完成」，然後進入
+   「系統設定 → 隱私權與安全性」，往下找到這個檔案的阻擋提示，
+   按「強制打開」，再按「打開」，依提示輸入 Mac 登入密碼或用 Touch ID。
 4. 之後可把 VideoColorFix.app 拖到「應用程式」資料夾使用。
 
 使用

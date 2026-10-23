@@ -1,6 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const api = window.whiteframe;
+if (api.platform === 'win32') $('reveal').textContent = '在檔案總管顯示完成影片 ↗';
 const state = { source: null, preset: 'natural', exporting: false, loading: false, previewSerial: 0, timer: null };
 const formatTime = value => { const s = Math.max(0, Math.floor(value || 0)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 function settings() { return { preset: state.preset, strength: Number($('strength').value), tint: Number($('tint').value), exposure: Number($('exposure').value) }; }
