@@ -13,17 +13,19 @@ const { ColorEngine } = require('../app/engine');
   const executablePath = process.env.WHITEFRAME_ELECTRON || path.join(root, '.build', 'electron-win', 'electron.exe');
   const packaged = Boolean(process.env.WHITEFRAME_PACKAGED);
   const app = await electron.launch({ executablePath, args: [...(packaged ? [] : [root]), '--smoke-test'], timeout: 60000 });
+  let page;
   try {
     await app.evaluate(({ dialog }, paths) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.file] });
       dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.output });
     }, { file, output });
-    const page = await app.firstWindow();
+    page = await app.firstWindow();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.waitForFunction(() => Boolean(window.whiteframe));
     await page.screenshot({ path: path.join(results, 'ui-empty.png') });
     await page.getByRole('button', { name: '選擇影片', exact: false }).click();
-    await page.waitForFunction(() => document.getElementById('corrected').src.startsWith('data:image/png;base64,'), { timeout: 30000 });
+    await page.waitForFunction(() => document.getElementById('corrected').src.startsWith('data:image/png;base64,') || !document.getElementById('error').hidden, { timeout: 30000 });
+    assert.equal(await page.locator('#error').isHidden(), true, await page.locator('#error-text').textContent());
     assert.equal(await page.locator('#export').isEnabled(), true);
     assert.equal(await page.locator('h1').textContent(), '影片預覽');
     assert.equal(await page.locator('.controls-heading h2').textContent(), '校色設定');
@@ -57,5 +59,14 @@ const { ColorEngine } = require('../app/engine');
     await page.screenshot({ path: path.join(results, 'ui-exported.png') });
     await fs.writeFile(path.join(results, 'ui-smoke.json'), JSON.stringify({ platform: process.platform, arch: process.arch, packaged, preview: true, controls: true, export: true, exportedDuration: metadata.duration, rendererErrors: errors }, null, 2));
     console.log('Native Electron smoke passed: preview, settings, reset, export, no renderer errors.');
+  } catch (error) {
+    const diagnostics = await app.evaluate(({ app, BrowserWindow }) => ({ packaged: app.isPackaged, appPath: app.getAppPath(), resourcesPath: process.resourcesPath, frameUrl: BrowserWindow.getAllWindows()[0]?.webContents.getURL() })).catch(() => ({}));
+    if (page) {
+      diagnostics.ui = await page.locator('body').innerText().catch(() => 'unavailable');
+      await page.screenshot({ path: path.join(results, 'ui-failure.png') }).catch(() => {});
+    }
+    await fs.writeFile(path.join(results, 'ui-failure.json'), JSON.stringify(diagnostics, null, 2));
+    console.error(JSON.stringify(diagnostics, null, 2));
+    throw error;
   } finally { await app.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
