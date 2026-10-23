@@ -2,3 +2,5 @@
 
 /* Keep the preview and export controls inside the app window. */
 body{height:100vh;display:flex;flex-direction:column;overflow:hidden}.topbar,.app-footer{flex-shrink:0}main{width:100%;flex:1;min-height:0!important}.workspace{min-height:0}.comparison{min-height:0;grid-template-rows:minmax(0,1fr)}figure{min-height:0}.image-stage img{max-height:none}.empty-stage{min-height:0}.controls{overflow:auto;padding-right:2px}.brand strong{font-size:21px;letter-spacing:.05em}.controls-heading{min-height:33px;margin-bottom:22px}.brand-en,.brand-divider,.tagline{display:none}
+
+@media(min-height:800px){.controls-heading{margin-bottom:16px}.preset{min-height:55px;padding:8px}.fine-label{margin-top:17px;padding-top:16px}.slider-control{margin-bottom:16px}.export-area{padding-top:13px}}

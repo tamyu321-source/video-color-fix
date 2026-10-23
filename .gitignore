@@ -4,3 +4,5 @@ node_modules/
 test-results/
 vendor/
 *.log
+__pycache__/
+*.pyc

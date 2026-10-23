@@ -71,7 +71,8 @@ test('video correction integration', async t => {
   });
   await t.test('HDR input is reported and refused for preview and export', async () => {
     const hdr = await fixture(folder, { name: 'hdr.mp4', hdr: true, duration: .4 });
-    assert.equal((await engine.open(hdr)).supported, false);
+    const hdrInfo = await engine.open(hdr);
+    assert.equal(hdrInfo.supported, false, JSON.stringify(hdrInfo));
     await assert.rejects(engine.preview(0, {}), /HDR/);
     await assert.rejects(engine.exportTo(path.join(folder, 'hdr-out.mp4'), {}), /HDR/);
     assert.equal(engine.busy, false);

@@ -6,6 +6,7 @@ import platform
 import plistlib
 import shutil
 import subprocess
+from create_icon import create as create_icon
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / '.build' / 'mac-package'
@@ -32,6 +33,7 @@ def main():
     app = folder / f'{NAME}.app'
     shutil.move(str(extracted / 'Electron.app'), str(app))
     resources = app / 'Contents' / 'Resources'
+    create_icon(resources / 'VideoColorFix.icns')
     default_app = resources / 'default_app.asar'
     if default_app.exists(): default_app.unlink()
     code = resources / 'app'
@@ -54,7 +56,7 @@ def main():
     shutil.copy2(ROOT / 'THIRD_PARTY.md', third_party / 'README.md')
     plist_path = app / 'Contents' / 'Info.plist'
     plist = plistlib.loads(plist_path.read_bytes())
-    plist.update(CFBundleIdentifier='local.videocolorfix.app', CFBundleName='影片校色工具', CFBundleDisplayName='影片校色工具', CFBundleShortVersionString=VERSION, CFBundleVersion=VERSION, LSMinimumSystemVersion='14.0')
+    plist.update(CFBundleIdentifier='local.videocolorfix.app', CFBundleName='影片校色工具', CFBundleDisplayName='影片校色工具', CFBundleIconFile='VideoColorFix.icns', CFBundleShortVersionString=VERSION, CFBundleVersion=VERSION, LSMinimumSystemVersion='14.0')
     plist_path.write_bytes(plistlib.dumps(plist))
     run(['codesign', '--force', '--deep', '--sign', '-', '--entitlements', ROOT / 'scripts/entitlements.plist', app])
     run(['codesign', '--verify', '--deep', '--strict', '--verbose=2', app])

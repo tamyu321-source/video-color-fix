@@ -130,6 +130,11 @@ class ColorEngine {
     if (!source) throw new Error('請先選擇影片。');
     if (!source.supported) throw new Error(source.notice);
     if (samePath(source.path, destination)) throw new Error('請另存新檔，不能覆蓋原始影片。');
+    // macOS /var paths can resolve to /private/var; compare real paths too.
+    let existingRealPath;
+    try { existingRealPath = await fs.realpath(destination); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (existingRealPath && samePath(source.path, existingRealPath)) throw new Error('請另存新檔，不能覆蓋原始影片。');
     try { await fs.access(destination); throw new Error('這個檔名已存在，請換一個新檔名。'); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     this.previewController?.abort();
