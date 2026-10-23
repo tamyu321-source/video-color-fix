@@ -7,9 +7,9 @@ import struct
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-version = json.loads((ROOT / 'package.json').read_text())['version']
+version = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
 archive = ROOT / 'dist' / f'VideoColorFix-{version}-Mac-arm64.zip'
-expected = (ROOT / 'dist/SHA256SUMS.txt').read_text().split()[0]
+expected = (ROOT / 'dist/SHA256SUMS.txt').read_text(encoding='utf-8').split()[0]
 actual = hashlib.sha256(archive.read_bytes()).hexdigest()
 assert actual == expected, 'Archive checksum mismatch'
 prefix = 'VideoColorFix-Mac-arm64/VideoColorFix.app/Contents/'
@@ -26,7 +26,7 @@ with zipfile.ZipFile(archive) as bundle:
     for name in ['Electron-LICENSE.txt', 'LICENSES.chromium.html', 'FFmpeg-GPLv2.txt', 'FFmpeg-LICENSE.md', 'x264-COPYING.txt']:
         assert bundle.getinfo(prefix + 'Resources/third-party/' + name).file_size > 0
     source = prefix + 'Resources/third-party/corresponding-source/'
-    for name, metadata in json.loads((ROOT / 'scripts/source-lock.json').read_text()).items():
+    for name, metadata in json.loads((ROOT / 'scripts/source-lock.json').read_text(encoding='utf-8')).items():
         assert hashlib.sha256(bundle.read(source + '.build/downloads/' + name)).hexdigest() == metadata['sha256']
     script = bundle.getinfo('VideoColorFix-Mac-arm64/第一次開啟.command')
     assert (script.external_attr >> 16) & 0o111

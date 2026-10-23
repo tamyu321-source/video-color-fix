@@ -7,7 +7,7 @@ import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = json.loads((ROOT / 'package.json').read_text())['version']
+VERSION = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
 folder = ROOT / '.build' / 'windows-package' / 'VideoColorFix-Windows-x64'
 if platform.system() != 'Windows':
     raise RuntimeError('Build the Windows app on a Windows host.')
@@ -37,7 +37,7 @@ source_cache = source / '.build/downloads'
 source_scripts.mkdir(parents=True)
 source_cache.mkdir(parents=True)
 for lock_name in ('source-lock.json', 'windows-source-lock.json'):
-    for name in json.loads((ROOT / 'scripts' / lock_name).read_text()):
+    for name in json.loads((ROOT / 'scripts' / lock_name).read_text(encoding='utf-8')):
         shutil.copy2(ROOT / '.build/downloads' / name, source_cache / name)
 for name in ('source-lock.json', 'windows-source-lock.json', 'build_media_windows.sh', 'prepare_windows_sources.py', 'download_runtime.py'):
     shutil.copy2(ROOT / 'scripts' / name, source_scripts / name)

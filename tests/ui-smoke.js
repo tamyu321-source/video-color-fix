@@ -58,8 +58,51 @@ const { ColorEngine } = require('../app/engine');
     assert.equal(metadata.supported, true);
     assert.equal(errors.length, 0, errors.join('\n'));
     await page.screenshot({ path: path.join(results, 'ui-exported.png') });
-    await fs.writeFile(path.join(results, 'ui-smoke.json'), JSON.stringify({ platform: process.platform, arch: process.arch, packaged, preview: true, controls: true, export: true, exportedDuration: metadata.duration, rendererErrors: errors }, null, 2));
-    console.log('Native Electron smoke passed: preview, settings, reset, export, no renderer errors.');
+    const batchFolder = await fs.mkdtemp(path.join(results, 'ui-batch-'));
+    const pcm = await fixture(path.join(batchFolder, 'inputs'), { name: 'Sony PCM.mov', duration: .5, audioCodec: 'pcm_s16be' });
+    const invalid = path.join(batchFolder, 'inputs', 'invalid.mp4'); await fs.writeFile(invalid, 'invalid video');
+    const destination = path.join(batchFolder, 'output'); await fs.mkdir(destination);
+    await app.evaluate(({ dialog }, paths) => {
+      let cancelFolderOnce = true;
+      dialog.showOpenDialog = async (_window, options) => {
+        if (options.properties.includes('openDirectory')) {
+          if (cancelFolderOnce) { cancelFolderOnce = false; return { canceled: true, filePaths: [] }; }
+          return { canceled: false, filePaths: [paths.destination] };
+        }
+        return { canceled: false, filePaths: [paths.file, paths.invalid, paths.pcm, paths.file] };
+      };
+    }, { file, invalid, pcm, destination });
+    await page.locator('#batch-open').click();
+    await page.locator('#batch-files').click();
+    await page.waitForFunction(() => document.querySelectorAll('.batch-row').length === 3 && !document.getElementById('batch-folder').disabled);
+    assert.match(await page.locator('#batch-settings').textContent(), /標準去黃 · 強度 100% · 色調 0 · 亮度 0/);
+    assert.equal(await page.locator('#batch-start').isDisabled(), true);
+    await page.locator('#batch-folder').click();
+    await page.waitForFunction(() => !document.getElementById('batch-folder').disabled);
+    assert.equal(await page.locator('#batch-start').isDisabled(), true, 'Cancelling folder selection must not start a batch.');
+    await page.locator('#batch-folder').click();
+    await page.locator('#batch-start').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => !document.getElementById('batch-start').disabled);
+    await page.locator('#batch-start').click();
+    await page.waitForFunction(() => document.getElementById('batch-summary').textContent.startsWith('處理完成') && !document.getElementById('batch-start').disabled, { timeout: 60000 });
+    assert.equal(await page.locator('.batch-row[data-status="completed"]').count(), 2);
+    assert.equal(await page.locator('.batch-row[data-status="failed"]').count(), 1);
+    assert.equal(await page.locator('#batch-error').isHidden(), true);
+    assert.equal((await fs.readdir(destination)).filter(name => name.endsWith('.mp4')).length, 2);
+    for (const name of await fs.readdir(destination)) assert.equal((await engine.probe(path.join(destination, name))).supported, true);
+    await page.screenshot({ path: path.join(results, 'ui-batch-completed.png') });
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1000, 720));
+    assert.equal(await page.evaluate(() => {
+      const dialog = document.getElementById('batch-dialog').getBoundingClientRect();
+      const button = document.getElementById('batch-start').getBoundingClientRect();
+      return dialog.top >= 0 && dialog.bottom <= innerHeight && button.bottom <= innerHeight && dialog.width <= innerWidth;
+    }), true, 'Batch actions must remain visible in the smallest supported window.');
+    await page.screenshot({ path: path.join(results, 'ui-batch-small.png') });
+    await page.locator('#batch-close').click();
+    assert.equal(await page.locator('#batch-dialog').isVisible(), false);
+    assert.equal(errors.length, 0, errors.join('\n'));
+    await fs.writeFile(path.join(results, 'ui-smoke.json'), JSON.stringify({ platform: process.platform, arch: process.arch, packaged, preview: true, controls: true, export: true, batch: { completed: 2, failed: 1, duplicatesRemoved: true, folderCancel: true }, exportedDuration: metadata.duration, rendererErrors: errors }, null, 2));
+    console.log('Native Electron smoke passed: preview, settings, reset, export, batch queue with PCM and failed-file continuation, no renderer errors.');
   } catch (error) {
     const diagnostics = await app.evaluate(({ app, BrowserWindow }) => ({ packaged: app.isPackaged, appPath: app.getAppPath(), resourcesPath: process.resourcesPath, frameUrl: BrowserWindow.getAllWindows()[0]?.webContents.getURL() })).catch(() => ({}));
     if (page) {

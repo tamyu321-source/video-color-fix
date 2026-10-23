@@ -1,7 +1,9 @@
 # 影片校色工具
 
-本機 SDR 影片去黃工具。目標平台為 Apple Silicon Mac、macOS 14 以上。
+本機 SDR 影片去黃工具。支援 Windows x64、Apple Silicon Mac（macOS 14 以上）。
 選擇影片、比較預覽、調整強度，再另存為 H.264 MP4。影片不會上傳。
+批量處理可選多支影片及輸出資料夾，使用同一組設定逐支匯出。
+失敗繼續、同名自動編號，取消清除未完成檔案並保留已完成輸出。
 
 預設固定沿用本次試修設定：BT.709 線性 RGB 增益 `[0.82, 1.02, 1.30]`，
 去黃強度 100%、Tint 0、曝光 0，加上亮部保護。每次開檔及恢復預設
@@ -24,6 +26,7 @@ Apple Silicon macOS：`python scripts/download_runtime.py --target darwin-arm64`
 
 校色基準、零強度、白衣及膚色方向、預覽、原檔保護、拒絕覆寫、取消清理、
 併行匯出限制、音訊保留／轉碼、無音訊、HDR 拒絕、原生 Electron 介面匯出。
+批量測試涵蓋重名及重複來源、錯誤續跑、設定快照、取消清理及已完成檔案保留。
 預覽和匯出採用同一份校色函式及 LUT。未自動辨識 Sony S-Log。
 
 包裝為 ad-hoc 簽章測試版，沒有 Apple Developer ID 簽章或 Apple 公證。

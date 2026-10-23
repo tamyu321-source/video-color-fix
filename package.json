@@ -1,7 +1,7 @@
 {
   "name": "whiteframe",
   "productName": "影片校色工具",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Local SDR video color correction for Windows and Apple Silicon Mac",
   "main": "app/main.js",

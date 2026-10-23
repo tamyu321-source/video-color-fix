@@ -12,7 +12,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-version = json.loads((ROOT / 'package.json').read_text())['version']
+version = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
 tag = 'v' + version
 repo = os.environ['GITHUB_REPOSITORY']
 target = os.environ['GITHUB_SHA']

@@ -12,7 +12,7 @@ from create_icon import create as create_icon
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / '.build' / 'mac-package'
 DIST = ROOT / 'dist'
-VERSION = json.loads((ROOT / 'package.json').read_text())['version']
+VERSION = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
 NAME = 'VideoColorFix'
 
 
@@ -58,7 +58,7 @@ def main():
     source_scripts = source_dir / 'scripts'
     source_cache.mkdir(parents=True)
     source_scripts.mkdir()
-    for name in json.loads((ROOT / 'scripts/source-lock.json').read_text()):
+    for name in json.loads((ROOT / 'scripts/source-lock.json').read_text(encoding='utf-8')):
         shutil.copy2(ROOT / '.build/downloads' / name, source_cache / name)
     for name in ('build_media_macos.py', 'download_runtime.py', 'source-lock.json'):
         shutil.copy2(ROOT / 'scripts' / name, source_scripts / name)

@@ -14,7 +14,7 @@
   </header>
   <main>
     <section class="workspace" aria-label="影片預覽">
-      <div class="section-heading"><div><h1>影片預覽</h1></div><button id="choose" class="button button-light"><span aria-hidden="true">＋</span> 選擇影片</button></div>
+      <div class="section-heading"><div><h1>影片預覽</h1></div><div class="file-actions"><button id="batch-open" class="button button-light">批量處理</button><button id="choose" class="button button-light"><span aria-hidden="true">＋</span> 選擇影片</button></div></div>
       <div id="file-info" class="file-info" hidden><span class="file-dot"></span><strong id="filename"></strong><span id="metadata"></span><span class="sdr-badge">SDR</span></div>
       <div id="empty" class="empty-stage" tabindex="0" role="button" aria-label="選擇或拖入影片">
         <div class="empty-art" aria-hidden="true"><div class="film-frame warm-frame"><span></span></div><div class="film-frame white-frame"><span></span></div><div class="art-sun"></div></div>
@@ -54,7 +54,21 @@
       <button id="reveal" class="button button-light reveal" hidden>在 Finder 顯示完成影片 ↗</button>
     </aside>
   </main>
-  <footer class="app-footer"><span>影片校色工具 <span class="version">0.1.1</span></span><span id="status" role="status" aria-live="polite">請選擇影片。</span></footer>
+  <footer class="app-footer"><span>影片校色工具 <span class="version">0.1.2</span></span><span id="status" role="status" aria-live="polite">請選擇影片。</span></footer>
+  <dialog id="batch-dialog" aria-labelledby="batch-title">
+    <div class="batch-header"><div><h2 id="batch-title">批量處理</h2><p>全部影片使用同一套校色設定，逐支另存成 MP4。</p></div><button id="batch-close" class="text-button" aria-label="關閉批量處理">關閉</button></div>
+    <div class="batch-toolbar"><button id="batch-files" class="button button-light">選擇多支影片</button><button id="batch-folder" class="button button-light">選擇輸出資料夾</button></div>
+    <p id="batch-folder-path" class="batch-path">尚未選擇輸出資料夾</p>
+    <p id="batch-settings" class="batch-settings"></p>
+    <div id="batch-list" class="batch-list" aria-label="批量影片清單"><p class="batch-empty">請選擇影片，也可以一次拖入多支影片。</p></div>
+    <p id="batch-error" class="batch-error" role="alert" hidden></p>
+    <div class="batch-footer">
+      <p id="batch-summary" role="status" aria-live="polite">尚未選擇影片</p>
+      <progress id="batch-progress" max="100" value="0" aria-label="批量處理總進度"></progress>
+      <p class="batch-note">同名檔案自動加編號。單支失敗會繼續處理，取消時保留已完成的影片。</p>
+      <div class="batch-buttons"><button id="batch-reveal" class="button button-light" hidden>開啟輸出資料夾</button><button id="batch-cancel" class="button button-light" hidden>取消批量處理</button><button id="batch-start" class="button button-primary" disabled>開始批量校色</button></div>
+    </div>
+  </dialog>
   <div id="error" class="error-toast" role="alert" hidden><span id="error-text"></span><button id="dismiss-error" aria-label="關閉錯誤訊息">×</button></div>
   <script src="renderer.js"></script>
 </body>
