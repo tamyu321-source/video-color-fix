@@ -15,6 +15,7 @@ const { ColorEngine } = require('../app/engine');
   const app = await electron.launch({ executablePath, args: [...(packaged ? [] : [root]), '--smoke-test'], timeout: 60000 });
   let page;
   try {
+    if (packaged) assert.equal(await app.evaluate(({ app }) => app.isPackaged), true, 'The distributed app must resolve packaged resources.');
     await app.evaluate(({ dialog }, paths) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [paths.file] });
       dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.output });

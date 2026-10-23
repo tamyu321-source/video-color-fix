@@ -50,7 +50,7 @@ jobs:
         run: python scripts/build_macos.py
       - name: Test packaged app on macOS
         env:
-          WHITEFRAME_ELECTRON: ${{ github.workspace }}/.build/mac-package/VideoColorFix-Mac-arm64/VideoColorFix.app/Contents/MacOS/Electron
+          WHITEFRAME_ELECTRON: ${{ github.workspace }}/.build/mac-package/VideoColorFix-Mac-arm64/VideoColorFix.app/Contents/MacOS/VideoColorFix
           WHITEFRAME_PACKAGED: '1'
         run: node tests/ui-smoke.js
       - name: Upload Mac app

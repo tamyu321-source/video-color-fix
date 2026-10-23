@@ -32,6 +32,9 @@ def main():
     folder.mkdir()
     app = folder / f'{NAME}.app'
     shutil.move(str(extracted / 'Electron.app'), str(app))
+    # Electron uses the executable name when determining app.isPackaged.
+    # Rename both the Mach-O entry point and its Info.plist declaration.
+    (app / 'Contents/MacOS/Electron').rename(app / 'Contents/MacOS/VideoColorFix')
     resources = app / 'Contents' / 'Resources'
     create_icon(resources / 'VideoColorFix.icns')
     default_app = resources / 'default_app.asar'
@@ -56,7 +59,7 @@ def main():
     shutil.copy2(ROOT / 'THIRD_PARTY.md', third_party / 'README.md')
     plist_path = app / 'Contents' / 'Info.plist'
     plist = plistlib.loads(plist_path.read_bytes())
-    plist.update(CFBundleIdentifier='local.videocolorfix.app', CFBundleName='影片校色工具', CFBundleDisplayName='影片校色工具', CFBundleIconFile='VideoColorFix.icns', CFBundleShortVersionString=VERSION, CFBundleVersion=VERSION, LSMinimumSystemVersion='14.0')
+    plist.update(CFBundleExecutable='VideoColorFix', CFBundleIdentifier='local.videocolorfix.app', CFBundleName='影片校色工具', CFBundleDisplayName='影片校色工具', CFBundleIconFile='VideoColorFix.icns', CFBundleShortVersionString=VERSION, CFBundleVersion=VERSION, LSMinimumSystemVersion='14.0')
     plist_path.write_bytes(plistlib.dumps(plist))
     run(['codesign', '--force', '--deep', '--sign', '-', '--entitlements', ROOT / 'scripts/entitlements.plist', app])
     run(['codesign', '--verify', '--deep', '--strict', '--verbose=2', app])
