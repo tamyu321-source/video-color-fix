@@ -33,7 +33,7 @@ cd "$sources/ffmpeg-8.1.3"
   --enable-encoder=libx264,prores_ks,ac3,aac,png,pcm_s24le,pcm_s16le,pcm_s16be,pcm_s24be,wrapped_avframe,rawvideo \
   --enable-parser=ac3,h264,hevc,av1,mpegvideo,mpeg4video,mjpeg,vp8,vp9,aac,aac_latm,mpegaudio,opus,vorbis,flac \
   --enable-bsf=aac_adtstoasc,h264_mp4toannexb,hevc_mp4toannexb,extract_extradata,null \
-  --enable-filter=crop,unsharp,hqdn3d,vignette,scale,setsar,split,format,lut3d,testsrc2,color,sine,drawbox,null,anull,aresample,aformat,transpose,hflip,vflip,select,trim,setpts,fps,concat,buffer,buffersink,abuffer,abuffersink \
+  --enable-filter=setparams,sidedata,crop,unsharp,hqdn3d,vignette,scale,setsar,split,format,lut3d,testsrc2,color,sine,drawbox,null,anull,aresample,aformat,transpose,hflip,vflip,select,trim,setpts,fps,concat,buffer,buffersink,abuffer,abuffersink \
   --enable-indev=lavfi
 make -j "$jobs"
 cp ffmpeg.exe ffprobe.exe "$vendor/"
