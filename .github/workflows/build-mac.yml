@@ -48,6 +48,8 @@ jobs:
         run: npm test
       - name: Package and verify app signatures
         run: python scripts/build_macos.py
+      - name: Verify archive architecture, defaults, licenses and filenames
+        run: python scripts/verify_archive.py
       - name: Test packaged app on macOS
         env:
           WHITEFRAME_ELECTRON: ${{ github.workspace }}/.build/mac-package/VideoColorFix-Mac-arm64/VideoColorFix.app/Contents/MacOS/VideoColorFix

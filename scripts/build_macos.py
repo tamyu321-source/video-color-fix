@@ -6,6 +6,7 @@ import platform
 import plistlib
 import shutil
 import subprocess
+import zipfile
 from create_icon import create as create_icon
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,12 +51,17 @@ def main():
         run(['codesign', '--force', '--sign', '-', media / binary])
     third_party = resources / 'third-party'
     shutil.copytree(ROOT / 'vendor/darwin-arm64/licenses', third_party)
+    shutil.copy2(extracted / 'LICENSE', third_party / 'Electron-LICENSE.txt')
+    shutil.copy2(extracted / 'LICENSES.chromium.html', third_party / 'LICENSES.chromium.html')
     source_dir = third_party / 'corresponding-source'
-    source_dir.mkdir()
+    source_cache = source_dir / '.build' / 'downloads'
+    source_scripts = source_dir / 'scripts'
+    source_cache.mkdir(parents=True)
+    source_scripts.mkdir()
     for name in json.loads((ROOT / 'scripts/source-lock.json').read_text()):
-        shutil.copy2(ROOT / '.build/downloads' / name, source_dir / name)
+        shutil.copy2(ROOT / '.build/downloads' / name, source_cache / name)
     for name in ('build_media_macos.py', 'download_runtime.py', 'source-lock.json'):
-        shutil.copy2(ROOT / 'scripts' / name, source_dir / name)
+        shutil.copy2(ROOT / 'scripts' / name, source_scripts / name)
     shutil.copy2(ROOT / 'THIRD_PARTY.md', third_party / 'README.md')
     plist_path = app / 'Contents' / 'Info.plist'
     plist = plistlib.loads(plist_path.read_bytes())
@@ -68,6 +74,13 @@ def main():
     (folder / '第一次開啟.command').chmod(0o755)
     archive = DIST / f'{NAME}-{VERSION}-Mac-arm64.zip'
     run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', folder, archive])
+    # ditto uses UTF-8 names without consistently setting ZIP's UTF-8 flag.
+    # Normalize ZIP metadata so Chinese filenames also display on Windows.
+    normalized = archive.with_suffix('.normalized.zip')
+    with zipfile.ZipFile(archive, metadata_encoding='utf-8') as original, zipfile.ZipFile(normalized, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as result:
+        for entry in original.infolist():
+            result.writestr(entry, original.read(entry))
+    normalized.replace(archive)
     checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
     (DIST / 'SHA256SUMS.txt').write_text(f'{checksum}  {archive.name}\n', encoding='utf-8')
     print(f'Created {archive.name} ({archive.stat().st_size:,} bytes)', flush=True)
