@@ -7,6 +7,7 @@ const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const { createCube, normalizeSettings } = require('./color');
+const { extension, previewGraph, exportOptions } = require('./pipeline');
 
 class CancelledError extends Error {
   constructor() { super('已取消'); this.code = 'CANCELLED'; }
@@ -62,8 +63,9 @@ function parseMetadata(data, file) {
     height: rotated ? video.width : video.height,
     fps: rate[1] ? rate[0] / rate[1] : 0,
     videoIndex: video.index, codec: video.codec_name,
+    pixelFormat: video.pix_fmt || 'unknown', bitDepth: Number(video.bits_per_raw_sample) || (String(video.pix_fmt).includes('10') ? 10 : 8),
     colorSpace, transfer, primaries,
-    audio: (data.streams || []).filter(s => s.codec_type === 'audio').map(s => ({ index: s.index, codec: s.codec_name })),
+    audio: (data.streams || []).filter(s => s.codec_type === 'audio').map(s => ({ index: s.index, codec: s.codec_name, sampleRate: Number(s.sample_rate), channels: s.channels })),
     supported: !wide,
     notice: wide ? '這是 HDR／廣色域影片。請先在 Catalyst 正確轉為 Rec.709，再使用去黃功能。'
       : '此工具校正一般 SDR 影片；若原片使用 S-Log，請先完成正確的 Rec.709 轉換。',
@@ -71,8 +73,9 @@ function parseMetadata(data, file) {
 }
 
 class ColorEngine {
-  constructor({ ffmpeg, ffprobe }) {
+  constructor({ ffmpeg, ffprobe, getLut = () => null }) {
     this.ffmpeg = ffmpeg; this.ffprobe = ffprobe;
+    this.getLut = getLut;
     this.source = null; this.previewController = null; this.exportController = null;
     this.openSerial = 0; this.lastOutput = null;
   }
@@ -103,8 +106,8 @@ class ColorEngine {
     try {
       const settings = normalizeSettings(input);
       const position = Math.max(0, Math.min(Number(time) || 0, Math.max(0, source.duration - 0.1)));
-      await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings));
-      const graph = `[0:${source.videoIndex}]scale=w='min(960,iw)':h='min(720,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1,split[original][balance];[balance]format=gbrpf32le,lut3d=file=balance.cube:interp=tetrahedral,format=rgb24[corrected]`;
+      await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings, 33, this.getLut(settings.lutId)));
+      const graph = previewGraph(source, settings);
       await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(position), '-i', source.path,
         '-filter_complex_threads', '1', '-filter_complex', graph,
         '-map', '[original]', '-frames:v', '1', '-update', '1', 'original.png',
@@ -130,6 +133,7 @@ class ColorEngine {
     const source = this.source;
     if (!source) throw new Error('請先選擇影片。');
     if (!source.supported) throw new Error(source.notice);
+    const plan = exportOptions(source, input), settings = plan.settings;
     if (samePath(source.path, destination)) throw new Error('請另存新檔，不能覆蓋原始影片。');
     // macOS /var paths can resolve to /private/var; compare real paths too.
     let existingRealPath;
@@ -143,17 +147,13 @@ class ColorEngine {
     try {
       folder = await fs.mkdtemp(path.join(os.tmpdir(), 'whiteframe-export-'));
       if (controller.signal.aborted) throw new CancelledError();
-      temporary = path.join(path.dirname(destination), `.whiteframe-${randomUUID()}.partial.mp4`);
+      temporary = path.join(path.dirname(destination), `.whiteframe-${randomUUID()}.partial${extension(settings)}`);
       const handle = await fs.open(temporary, 'wx'); await handle.close();
-      const settings = normalizeSettings(input);
-      await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings));
-      const audioCopy = source.audio.every(s => ['aac', 'mp3'].includes(s.codec));
+      await fs.writeFile(path.join(folder, 'balance.cube'), createCube(settings, 33, this.getLut(settings.lutId)));
       let pending = '';
-      await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-nostats', '-y', '-i', source.path,
-        '-map', `0:${source.videoIndex}`, '-map', '0:a?', '-map_metadata', '0',
-        '-vf', 'format=gbrpf32le,lut3d=file=balance.cube:interp=tetrahedral,format=yuv420p',
-        '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-threads', '4', '-fps_mode', 'passthrough', '-enc_time_base:v', '-1',
-        '-c:a', audioCopy ? 'copy' : 'aac', ...(audioCopy ? [] : ['-b:a', '256k']),
+      await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-nostats', '-y', ...plan.beforeInput, '-i', source.path, ...plan.afterInput,
+        '-map', `0:${source.videoIndex}`, '-map_metadata', '0',
+        '-vf', plan.filters, ...plan.video, '-fps_mode', 'passthrough', '-enc_time_base:v', '-1', ...plan.audio,
         '-metadata:s:v:0', 'rotate=0', '-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709',
         '-movflags', '+faststart', '-progress', 'pipe:1', temporary], {
         cwd: folder, signal: controller.signal,
@@ -163,7 +163,7 @@ class ColorEngine {
           for (const line of lines) {
             if (line.startsWith('out_time_us=')) {
               const seconds = Number(line.split('=')[1]) / 1000000;
-              if (Number.isFinite(seconds)) onProgress({ percent: Math.max(0, Math.min(99, seconds / source.duration * 100)) });
+              if (Number.isFinite(seconds)) onProgress({ percent: Math.max(0, Math.min(99, seconds / plan.duration * 100)) });
             }
           }
         },
@@ -171,7 +171,7 @@ class ColorEngine {
       if (controller.signal.aborted) throw new CancelledError();
       const metadata = await this.probe(temporary);
       if (controller.signal.aborted) throw new CancelledError();
-      if (Math.abs(metadata.duration - source.duration) > 0.5) throw new Error('匯出長度與原片不一致，已保留原檔。請重新匯出。');
+      if (Math.abs(metadata.duration - plan.duration) > 0.5) throw new Error('匯出長度與選取片段不一致，已保留原檔。請重新匯出。');
       // Publish without overwriting a file that may have appeared since the save dialog.
       try { await fs.link(temporary, destination); }
       catch (error) {
@@ -180,7 +180,7 @@ class ColorEngine {
       }
       this.lastOutput = destination;
       onProgress({ percent: 100 });
-      return { path: destination, duration: metadata.duration, audioCopied: audioCopy, settings };
+      return { path: destination, duration: metadata.duration, audioCopied: plan.audioCopied, settings };
     } finally {
       if (temporary) await fs.rm(temporary, { force: true });
       if (folder) await fs.rm(folder, { recursive: true, force: true });

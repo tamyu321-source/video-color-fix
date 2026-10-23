@@ -1,0 +1,61 @@
+name: Build media runtime
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mac:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            .build/downloads
+            .build/media-prefix
+            vendor/darwin-arm64
+          key: mac-media-v1-${{ hashFiles('scripts/source-lock.json', 'scripts/build_media_macos.py') }}
+      - run: python scripts/build_media_macos.py
+      - uses: actions/cache/save@v4
+        with:
+          path: |
+            .build/downloads
+            .build/media-prefix
+            vendor/darwin-arm64
+          key: mac-media-v1-${{ hashFiles('scripts/source-lock.json', 'scripts/build_media_macos.py') }}
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache/restore@v4
+        id: media-cache
+        with:
+          path: |
+            .build/downloads
+            vendor/win32-x64
+          key: windows-media-v1-${{ hashFiles('scripts/*source-lock.json', 'scripts/build_media_windows.sh') }}
+      - if: steps.media-cache.outputs.cache-hit != 'true'
+        run: python scripts/prepare_windows_sources.py
+      - uses: msys2/setup-msys2@v2
+        if: steps.media-cache.outputs.cache-hit != 'true'
+        with:
+          msystem: UCRT64
+          install: make diffutils nasm mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf
+      - if: steps.media-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: bash scripts/build_media_windows.sh
+      - uses: actions/cache/save@v4
+        if: steps.media-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            .build/downloads
+            vendor/win32-x64
+          key: windows-media-v1-${{ hashFiles('scripts/*source-lock.json', 'scripts/build_media_windows.sh') }}

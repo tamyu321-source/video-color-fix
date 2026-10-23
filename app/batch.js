@@ -3,11 +3,12 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { ColorEngine, CancelledError } = require('./engine');
 const { normalizeSettings } = require('./color');
+const { extension } = require('./pipeline');
 
-async function uniqueOutput(file, folder = path.dirname(file)) {
+async function uniqueOutput(file, folder = path.dirname(file), ext = '.mp4') {
   const name = path.parse(file).name;
   for (let i = 1; i < 10000; i++) {
-    const candidate = path.join(folder, `${name}_去黃${i === 1 ? '' : `_${i}`}.mp4`);
+    const candidate = path.join(folder, `${name}_去黃${i === 1 ? '' : `_${i}`}${ext}`);
     try { await fs.access(candidate); }
     catch (error) { if (error.code === 'ENOENT') return candidate; throw error; }
   }
@@ -75,7 +76,7 @@ class BatchJob {
           const metadata = await this.engine.open(item.path);
           if (this.stopping) throw new CancelledError();
           if (!metadata.supported) throw new Error(metadata.notice);
-          const destination = await uniqueOutput(item.path, this.folder);
+          const destination = await uniqueOutput(item.path, this.folder, extension(this.settings));
           if (this.stopping) throw new CancelledError();
           const result = await this.engine.exportTo(destination, this.settings, data => {
             item.percent = data.percent; this.notify();
